@@ -23,7 +23,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+KR:wght@300;400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 
-  <link rel="stylesheet" href="style.css?v=1.6">
+  <link rel="stylesheet" href="style.css?v=1.7">
 </head>
 <body class="theme-midnight">
   <!-- Sacred Ambient Background Orbs -->
@@ -42,18 +42,12 @@
           </svg>
         </div>
         <div class="brand-titles">
-          <h1 class="brand-name">은혜의 기도 <span class="brand-sub">GraceAI</span></h1>
+          <h1 class="brand-name">은혜의 기도</h1>
         </div>
       </div>
 
-      <!-- Header Controls: Status badge + Essential buttons -->
+      <!-- Header Controls: Clean & uncluttered -->
       <div class="header-actions">
-        <!-- AI Engine Status Pill -->
-        <div id="lmStudioBadge" class="status-pill status-checking" role="button" tabindex="0" title="AI 엔진 상태 (클릭 시 설정)">
-          <span class="status-dot"></span>
-          <span id="statusText" class="status-text">AI 확인 중...</span>
-        </div>
-
         <!-- Saved Prayers Button -->
         <button id="btnOpenHistory" class="header-icon-btn" title="나의 기도함 (보관함)" aria-label="나의 기도함">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -75,14 +69,6 @@
             <line x1="21" y1="12" x2="23" y2="12"></line>
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-          </svg>
-        </button>
-
-        <!-- Settings Button (AI Engine & Voice) -->
-        <button id="btnOpenSettings" class="header-icon-btn" title="설정 (Google AI / LM Studio)" aria-label="설정">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
           </svg>
         </button>
       </div>
@@ -317,6 +303,13 @@
     </div>
   </main>
 
+  <!-- App Peaceful Footer -->
+  <footer class="app-footer" style="text-align: center; padding: 2.5rem 1rem 3.5rem; color: var(--text-dim); font-size: 0.85rem;">
+    <p style="margin-bottom: 0.4rem; color: var(--gold-light); font-weight: 600;">은혜의 기도 · GraceAI</p>
+    <p style="font-size: 0.78rem; opacity: 0.8; margin-bottom: 0.8rem;">"너희 구할 것을 감사함으로 하나님께 아뢰라" (빌립보서 4:6)</p>
+    <button id="btnOpenSettings" class="footer-settings-link" style="background:none; border:none; color:var(--text-dim); font-size:0.75rem; cursor:pointer; opacity:0.35; padding: 4px 8px;" title="개발/관리자 설정">⚙️ 설정</button>
+  </footer>
+
   <!-- Saved Prayers Modal (나의 기도함) -->
   <div id="historyModal" class="modal-overlay hidden">
     <div class="modal-container history-modal">
@@ -462,7 +455,7 @@
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Application Script (cache-busting v=1.6) -->
-  <script src="app.js?v=1.6"></script>
+  <!-- Application Script (cache-busting v=1.7) -->
+  <script src="app.js?v=1.7"></script>
 </body>
 </html>
