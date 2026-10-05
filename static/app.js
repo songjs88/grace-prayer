@@ -47,19 +47,13 @@ const elements = {
   collapsibleOptions: document.getElementById('collapsibleOptions'),
   prayerTone: document.getElementById('prayerTone'),
   prayerRecipient: document.getElementById('prayerRecipient'),
-  prayerSpeedMode: document.getElementById('prayerSpeedMode'),
   btnSubmitPrayer: document.getElementById('btnSubmitPrayer'),
-  btnModelTag: document.getElementById('btnModelTag'),
 
   // Streaming & Loading
   streamingSection: document.getElementById('streamingSection'),
   generatingStatusTitle: document.getElementById('generatingStatusTitle'),
   generatingStatusSubtitle: document.getElementById('generatingStatusSubtitle'),
   elapsedTimerBadge: document.getElementById('elapsedTimerBadge'),
-  thinkingBox: document.getElementById('thinkingBox'),
-  thinkingToggle: document.getElementById('thinkingToggle'),
-  thinkingPreview: document.getElementById('thinkingPreview'),
-  thinkingContent: document.getElementById('thinkingContent'),
   liveStreamPreview: document.getElementById('liveStreamPreview'),
 
   // Results
@@ -119,9 +113,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initVoiceSelector();
   updateSavedBadge();
-  initServerConfig();
   setupEventListeners();
   updateCharCount();
+  initServerConfig();
 });
 
 function initVoiceSelector() {
@@ -202,13 +196,13 @@ async function initServerConfig() {
 function updateEngineUI() {
   if (state.provider === 'gemini') {
     if (state.hasGeminiEnvKey || state.geminiKey) {
-      elements.lmStudioBadge.className = 'status-pill status-online';
-      elements.statusText.textContent = `✨ Gemini 준비됨 (${state.geminiModel})`;
-      elements.btnModelTag.textContent = state.geminiModel;
+      if (elements.lmStudioBadge) elements.lmStudioBadge.className = 'status-pill status-online';
+      if (elements.statusText) elements.statusText.textContent = `✨ Gemini 준비됨 (${state.geminiModel})`;
+      if (elements.btnModelTag) elements.btnModelTag.textContent = state.geminiModel;
     } else {
-      elements.lmStudioBadge.className = 'status-pill status-offline';
-      elements.statusText.textContent = '⚙️ Gemini 키 설정 필요';
-      elements.btnModelTag.textContent = 'Gemini 키 입력';
+      if (elements.lmStudioBadge) elements.lmStudioBadge.className = 'status-pill status-offline';
+      if (elements.statusText) elements.statusText.textContent = '⚙️ Gemini 키 설정 필요';
+      if (elements.btnModelTag) elements.btnModelTag.textContent = 'Gemini 키 입력';
     }
   } else {
     // LM Studio
@@ -238,8 +232,8 @@ function switchEngineTab(providerName, saveToStorage = true) {
 }
 
 async function checkLMStudioStatus() {
-  elements.lmStudioBadge.className = 'status-pill status-checking';
-  elements.statusText.textContent = 'LM Studio 확인 중...';
+  if (elements.lmStudioBadge) elements.lmStudioBadge.className = 'status-pill status-checking';
+  if (elements.statusText) elements.statusText.textContent = 'LM Studio 확인 중...';
 
   try {
     const res = await fetch('/api/status');
@@ -248,9 +242,9 @@ async function checkLMStudioStatus() {
     if (data.online) {
       state.lmStudioOnline = true;
       state.activeModel = data.active_model || 'gemma-4-12b-it';
-      elements.lmStudioBadge.className = 'status-pill status-online';
-      elements.statusText.textContent = `LM Studio 연결됨 (${state.activeModel})`;
-      elements.btnModelTag.textContent = state.activeModel;
+      if (elements.lmStudioBadge) elements.lmStudioBadge.className = 'status-pill status-online';
+      if (elements.statusText) elements.statusText.textContent = `LM Studio 연결됨 (${state.activeModel})`;
+      if (elements.btnModelTag) elements.btnModelTag.textContent = state.activeModel;
 
       if (data.models && data.models.length > 0 && elements.settingModel) {
         elements.settingModel.innerHTML = data.models.map(m => 
@@ -275,9 +269,9 @@ async function checkLMStudioStatus() {
 function markLMOffline(errorMsg) {
   state.lmStudioOnline = false;
   if (state.provider === 'lmstudio') {
-    elements.lmStudioBadge.className = 'status-pill status-offline';
-    elements.statusText.textContent = 'LM Studio 미연결 (클릭하여 설정)';
-    elements.btnModelTag.textContent = 'LM Studio 오프라인';
+    if (elements.lmStudioBadge) elements.lmStudioBadge.className = 'status-pill status-offline';
+    if (elements.statusText) elements.statusText.textContent = 'LM Studio 미연결 (클릭하여 설정)';
+    if (elements.btnModelTag) elements.btnModelTag.textContent = 'LM Studio 오프라인';
   }
   if (elements.serverStateVal) {
     elements.serverStateVal.textContent = '🔴 연결 실패 (서버 미실행)';
@@ -350,90 +344,119 @@ function setupEventListeners() {
   }
 
   // Thinking Box Toggle
-  elements.thinkingToggle.addEventListener('click', () => {
-    const isHidden = elements.thinkingContent.classList.toggle('hidden');
-    elements.thinkingToggle.querySelector('.thinking-chevron').textContent = isHidden ? '▼' : '▲';
-  });
+  if (elements.thinkingToggle && elements.thinkingContent) {
+    elements.thinkingToggle.addEventListener('click', () => {
+      const isHidden = elements.thinkingContent.classList.toggle('hidden');
+      const chevron = elements.thinkingToggle.querySelector('.thinking-chevron');
+      if (chevron) chevron.textContent = isHidden ? '▼' : '▲';
+    });
+  }
 
   // Modals
-  elements.lmStudioBadge.addEventListener('click', () => openModal(elements.settingsModal));
-  elements.btnOpenSettings.addEventListener('click', () => openModal(elements.settingsModal));
-  elements.btnCloseSettings.addEventListener('click', () => closeModal(elements.settingsModal));
+  if (elements.lmStudioBadge) {
+    elements.lmStudioBadge.addEventListener('click', () => openModal(elements.settingsModal));
+  }
+  if (elements.btnOpenSettings) {
+    elements.btnOpenSettings.addEventListener('click', () => openModal(elements.settingsModal));
+  }
+  if (elements.btnCloseSettings) {
+    elements.btnCloseSettings.addEventListener('click', () => closeModal(elements.settingsModal));
+  }
 
-  elements.btnOpenHistory.addEventListener('click', () => {
-    renderHistoryList();
-    openModal(elements.historyModal);
-  });
-  elements.btnCloseHistory.addEventListener('click', () => closeModal(elements.historyModal));
-  elements.btnClearAllHistory.addEventListener('click', clearAllHistory);
+  if (elements.btnOpenHistory) {
+    elements.btnOpenHistory.addEventListener('click', () => {
+      renderHistoryList();
+      openModal(elements.historyModal);
+    });
+  }
+  if (elements.btnCloseHistory) {
+    elements.btnCloseHistory.addEventListener('click', () => closeModal(elements.historyModal));
+  }
+  if (elements.btnClearAllHistory) {
+    elements.btnClearAllHistory.addEventListener('click', clearAllHistory);
+  }
 
-  elements.btnOpenCardModal.addEventListener('click', openPrayerCardModal);
-  elements.btnCloseCardModal.addEventListener('click', () => closeModal(elements.cardModal));
+  if (elements.btnOpenCardModal) {
+    elements.btnOpenCardModal.addEventListener('click', openPrayerCardModal);
+  }
+  if (elements.btnCloseCardModal) {
+    elements.btnCloseCardModal.addEventListener('click', () => closeModal(elements.cardModal));
+  }
 
   // Result Actions
-  elements.btnCopyAll.addEventListener('click', copyAllPrayer);
-  elements.btnSavePrayer.addEventListener('click', saveCurrentPrayer);
-  elements.btnTTSPrayer.addEventListener('click', togglePrayerAudio);
-  elements.btnCopyCardText.addEventListener('click', copyCardSummary);
-  elements.btnPrintCard.addEventListener('click', () => window.print());
+  if (elements.btnCopyAll) elements.btnCopyAll.addEventListener('click', copyAllPrayer);
+  if (elements.btnSavePrayer) elements.btnSavePrayer.addEventListener('click', saveCurrentPrayer);
+  if (elements.btnTTSPrayer) elements.btnTTSPrayer.addEventListener('click', togglePrayerAudio);
+  if (elements.btnCopyCardText) elements.btnCopyCardText.addEventListener('click', copyCardSummary);
+  if (elements.btnPrintCard) elements.btnPrintCard.addEventListener('click', () => window.print());
 
   // Settings Save & Test
-  elements.btnTestConnection.addEventListener('click', async () => {
-    const host = elements.settingHost.value.trim() || 'http://127.0.0.1:1234';
-    showToast('LM Studio 연결 테스트 중...');
-    await checkLMStudioStatus();
-  });
+  if (elements.btnTestConnection) {
+    elements.btnTestConnection.addEventListener('click', async () => {
+      const host = (elements.settingHost ? elements.settingHost.value.trim() : '') || 'http://127.0.0.1:1234';
+      showToast('LM Studio 연결 테스트 중...');
+      await checkLMStudioStatus();
+    });
+  }
 
-  elements.btnSaveSettings.addEventListener('click', () => {
-    // Save Gemini options
-    if (elements.settingGeminiKey) {
-      state.geminiKey = elements.settingGeminiKey.value.trim();
-      localStorage.setItem('grace_gemini_key', state.geminiKey);
-    }
-    if (elements.settingGeminiModel) {
-      state.geminiModel = elements.settingGeminiModel.value;
-      localStorage.setItem('grace_gemini_model', state.geminiModel);
-    }
+  if (elements.btnSaveSettings) {
+    elements.btnSaveSettings.addEventListener('click', () => {
+      // Save Gemini options
+      if (elements.settingGeminiKey) {
+        state.geminiKey = elements.settingGeminiKey.value.trim();
+        localStorage.setItem('grace_gemini_key', state.geminiKey);
+      }
+      if (elements.settingGeminiModel) {
+        state.geminiModel = elements.settingGeminiModel.value;
+        localStorage.setItem('grace_gemini_model', state.geminiModel);
+      }
 
-    // Save LM Studio options
-    if (elements.settingModel) {
-      state.activeModel = elements.settingModel.value;
-    }
-    if (elements.settingHost) {
-      state.hostUrl = elements.settingHost.value.trim();
-    }
+      // Save LM Studio options
+      if (elements.settingModel) {
+        state.activeModel = elements.settingModel.value;
+      }
+      if (elements.settingHost) {
+        state.hostUrl = elements.settingHost.value.trim();
+      }
 
-    // Save Voice
-    if (elements.settingDefaultVoice) {
-      state.ttsVoice = elements.settingDefaultVoice.value;
-      localStorage.setItem('grace_tts_voice', state.ttsVoice);
-      if (elements.selectVoice) elements.selectVoice.value = state.ttsVoice;
-    }
+      // Save Voice
+      if (elements.settingDefaultVoice) {
+        state.ttsVoice = elements.settingDefaultVoice.value;
+        localStorage.setItem('grace_tts_voice', state.ttsVoice);
+        if (elements.selectVoice) elements.selectVoice.value = state.ttsVoice;
+      }
 
-    updateEngineUI();
-    closeModal(elements.settingsModal);
-    const engineLabel = state.provider === 'gemini' ? 'Google Gemini' : 'LM Studio';
-    showToast(`설정이 저장되었습니다 (${engineLabel})`);
-  });
+      updateEngineUI();
+      closeModal(elements.settingsModal);
+      const engineLabel = state.provider === 'gemini' ? 'Google Gemini' : 'LM Studio';
+      showToast(`설정이 저장되었습니다 (${engineLabel})`);
+    });
+  }
 
   // Modal Backdrop click to close
   [elements.settingsModal, elements.historyModal, elements.cardModal].forEach(modal => {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal(modal);
-    });
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal(modal);
+      });
+    }
   });
 }
 
 function updateCharCount() {
-  const len = elements.prayerTopicInput.value.length;
-  elements.charCount.textContent = `${len} / 500자`;
+  if (elements.prayerTopicInput && elements.charCount) {
+    const len = elements.prayerTopicInput.value.length;
+    elements.charCount.textContent = `${len} / 500자`;
+  }
 }
 
 function openModal(modal) {
+  if (!modal) return;
   modal.classList.remove('hidden');
 }
 
 function closeModal(modal) {
+  if (!modal) return;
   modal.classList.add('hidden');
 }
 
@@ -497,12 +520,12 @@ async function handlePrayerSubmit(e) {
     : `${state.activeModel} 로컬 AI`;
   elements.generatingStatusSubtitle.textContent = `${engineDesc}가 성경 말씀 3개와 기도문을 짓는 중입니다`;
 
-  elements.thinkingBox.classList.add('hidden');
-  elements.thinkingContent.textContent = '';
-  elements.liveStreamPreview.innerHTML = '<span class="typing-cursor"></span>';
+  if (elements.thinkingBox) elements.thinkingBox.classList.add('hidden');
+  if (elements.thinkingContent) elements.thinkingContent.textContent = '';
+  if (elements.liveStreamPreview) elements.liveStreamPreview.innerHTML = '<span class="typing-cursor"></span>';
 
   // Smooth scroll to streaming card
-  elements.streamingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (elements.streamingSection) elements.streamingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   let accumulatedContent = '';
   let accumulatedThinking = '';
@@ -561,12 +584,12 @@ async function handlePrayerSubmit(e) {
           const payload = JSON.parse(dataStr);
 
           if (eventType === 'status') {
-            elements.generatingStatusTitle.textContent = payload.message || '작성 중...';
+            if (elements.generatingStatusTitle) elements.generatingStatusTitle.textContent = payload.message || '작성 중...';
           } else if (eventType === 'thinking') {
             accumulatedThinking += payload.token;
-            elements.thinkingBox.classList.remove('hidden');
-            elements.thinkingContent.textContent = accumulatedThinking;
-            elements.thinkingPreview.textContent = accumulatedThinking.slice(-40) + '...';
+            if (elements.thinkingBox) elements.thinkingBox.classList.remove('hidden');
+            if (elements.thinkingContent) elements.thinkingContent.textContent = accumulatedThinking;
+            if (elements.thinkingPreview) elements.thinkingPreview.textContent = accumulatedThinking.slice(-40) + '...';
           } else if (eventType === 'token') {
             accumulatedContent += payload.token;
             // Update preview

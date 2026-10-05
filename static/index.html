@@ -23,7 +23,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+KR:wght@300;400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1.1">
 </head>
 <body class="theme-midnight">
   <!-- Sacred Ambient Background Orbs -->
@@ -46,8 +46,14 @@
         </div>
       </div>
 
-      <!-- Header Controls: Essential 3 buttons only -->
+      <!-- Header Controls: Status badge + Essential buttons -->
       <div class="header-actions">
+        <!-- AI Engine Status Pill -->
+        <div id="lmStudioBadge" class="status-pill status-checking" role="button" tabindex="0" title="AI 엔진 상태 (클릭 시 설정)">
+          <span class="status-dot"></span>
+          <span id="statusText" class="status-text">AI 확인 중...</span>
+        </div>
+
         <!-- Saved Prayers Button -->
         <button id="btnOpenHistory" class="header-icon-btn" title="나의 기도함 (보관함)" aria-label="나의 기도함">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -357,7 +363,7 @@
         </div>
 
         <!-- Google Gemini Settings Box -->
-        <div id="geminiSettingsBox" class="engine-settings-box">
+        <div id="paneGemini" class="engine-settings-box">
           <div class="setting-item">
             <div class="label-with-link">
               <label for="settingGeminiKey" class="setting-label">Google Gemini API 키</label>
@@ -382,7 +388,7 @@
         </div>
 
         <!-- LM Studio Settings Box -->
-        <div id="lmStudioSettingsBox" class="engine-settings-box hidden">
+        <div id="paneLMStudio" class="engine-settings-box hidden">
           <div class="setting-item">
             <label for="settingHost" class="setting-label">LM Studio 주소 (API Host)</label>
             <div class="input-with-btn">
@@ -399,6 +405,8 @@
           <div class="setting-connection-status">
             <span class="status-key">서버 연결:</span>
             <span class="status-val" id="serverStateVal">확인 중...</span>
+            <span class="status-key" style="margin-left: 0.8rem;">활성 모델:</span>
+            <span class="status-val" id="activeModelVal">gemma-4-12b-it</span>
           </div>
         </div>
 
@@ -454,7 +462,7 @@
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Application Script -->
-  <script src="app.js"></script>
+  <!-- Application Script (cache-busting v=1.1) -->
+  <script src="app.js?v=1.1"></script>
 </body>
 </html>
