@@ -173,6 +173,31 @@ def generate_gemini_content(api_key, model, system_prompt, user_prompt):
         raise last_error
     return ""
 
+def sanitize_korean_prayer_grammar(text):
+    """
+    Auto-corrects subtle LLM grammatical hallucinations & irregular conjugation errors
+    in traditional Korean prayers (e.g. '간구를 들아' -> '간구를 들어', '주시옵니사' -> '주시옵시사').
+    """
+    if not text:
+        return ""
+    # 1. '듣다' ㄷ-불규칙 활용 교정 ('들아' -> '들어')
+    text = re.sub(r'(간구|기도|음성|소리|부르짖음|신음|호소|마음)(?:를|을)?\s*들\s*아\b', r'\1를 들어', text)
+    text = re.sub(r'\b들\s*아\s*(응답|주시|주옵|역사|인도|보살|살펴)', r'들어 \1', text)
+    text = re.sub(r'\b들\s*아서\b', '들어서', text)
+    text = re.sub(r'\b들\s*아\b', '들어', text)
+
+    # 2. 간구/연결 어미 오탈자 교정
+    text = re.sub(r'주시옵니사\b', '주시옵시사', text)
+    text = re.sub(r'하옵니사\b', '하옵시사', text)
+    text = re.sub(r'있사옵니사\b', '있사옵시사', text)
+    text = re.sub(r'주옵니사\b', '주옵시사', text)
+    text = re.sub(r'되옵니사\b', '되옵시사', text)
+
+    # 3. 기타 어간 활용 오류
+    text = re.sub(r'병이\s*낫아\b', '병이 나아', text)
+    text = re.sub(r'믿\s*아\b', '믿어', text)
+    return text
+
 def clean_text_for_tts(text):
     """
     Cleans prayer text for spiritual and natural audio recitation:
@@ -209,9 +234,7 @@ def clean_text_for_tts(text):
     result = re.sub(r'[*#_~`\[\]]', '', result)
     
     # Auto-correct common LLM grammatical hallucinations/typos in Korean prayers
-    result = re.sub(r'주시옵니사\b', '주시옵시사', result)
-    result = re.sub(r'하옵니사\b', '하옵시사', result)
-    result = re.sub(r'있사옵니사\b', '있사옵시사', result)
+    result = sanitize_korean_prayer_grammar(result)
     
     # Check cut-off endings
     cutoff_pattern = r'(?:우리\s*주\s*)?(?:저를\s*사랑하시는\s*)?예수\s*그리스도의(?:\s*이름으로)?\s*$'
@@ -336,9 +359,7 @@ def parse_prayer_markdown(text):
     clean_prayer = '\n'.join(filtered_lines).strip()
     
     # Auto-correct common LLM grammatical hallucinations/typos in Korean prayers
-    clean_prayer = re.sub(r'주시옵니사\b', '주시옵시사', clean_prayer)
-    clean_prayer = re.sub(r'하옵니사\b', '하옵시사', clean_prayer)
-    clean_prayer = re.sub(r'있사옵니사\b', '있사옵시사', clean_prayer)
+    clean_prayer = sanitize_korean_prayer_grammar(clean_prayer)
     
     # Ensure closing sentence is never cut off (e.g. "예수 그리스도의 " or "예수님의 ")
     cutoff_regex = r'(?:우리\s*주\s*)?(?:저를\s*사랑하시는\s*)?예수\s*그리스도의(?:\s*이름으로)?\s*$'
@@ -501,7 +522,7 @@ class GraceAIRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "중요 규칙:\n"
                 "1. 기도문 시작 부분에 '은혜의 기도문' 같은 제목을 절대 붙이지 마세요. 곧바로 하나님 아버지 또는 주님을 부르며 시작하세요.\n"
                 "2. 기도문의 마지막 문장은 중간에 끊기지 않게 완전하게 매듭짓고, 반드시 '우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.'으로 끝마치세요.\n"
-                "3. 정갈한 문법과 어미: 기도문 간구 및 연결 어미('~주시옵소서', '~주시옵시사', '~간구하옵나이다')를 정확하게 구사하고, '주시옵니사' 같은 비문이나 오탈자가 없도록 정갈한 문장으로 작성하세요.\n\n"
+                "3. 정갈한 맞춤법과 불규칙 활용: 한국어 기도문 맞춤법과 동사 활용(예: '듣다'의 활용은 '간구를 들어', '귀를 기울이사 들어 주옵소서'이며 '간구를 들아'는 심각한 오탈자이므로 절대 금지, '주시옵소서', '주시옵시사')을 철저히 지키고, 비문이나 오탈자가 없도록 정갈하게 작성하세요.\n\n"
                 "### 📖 관련 성경 말씀\n"
                 "1. **[책 장:절]**: \"말씀 본문 내용\"\n"
                 "   - *묵상의 은혜*: 이 말씀이 주는 위로와 약속\n"

@@ -785,6 +785,9 @@ function renderFinalResults(data) {
     }
   }
 
+  // Sanitize closingText grammar
+  closingText = sanitizePrayerGrammar(closingText);
+
   // Render every single prayer paragraph so nothing is hidden
   elements.prayerBody.innerHTML = mainParagraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('');
   const closingEl = document.getElementById('prayerClosingDeclaration');
@@ -800,10 +803,27 @@ function renderFinalResults(data) {
   elements.resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// Auto-correct subtle LLM grammatical hallucinations & irregular conjugation in prayers
+function sanitizePrayerGrammar(text) {
+  if (!text) return '';
+  return text
+    .replace(/(간구|기도|음성|소리|부르짖음|신음|호소|마음)(?:를|을)?\s*들\s*아\b/g, '$1를 들어')
+    .replace(/\b들\s*아\s*(응답|주시|주옵|역사|인도|보살|살펴)/g, '들어 $1')
+    .replace(/\b들\s*아서\b/g, '들어서')
+    .replace(/\b들\s*아\b/g, '들어')
+    .replace(/주시옵니사\b/g, '주시옵시사')
+    .replace(/하옵니사\b/g, '하옵시사')
+    .replace(/있사옵니사\b/g, '있사옵시사')
+    .replace(/주옵니사\b/g, '주옵시사')
+    .replace(/되옵니사\b/g, '되옵시사')
+    .replace(/병이\s*낫아\b/g, '병이 나아')
+    .replace(/믿\s*아\b/g, '믿어');
+}
+
 // Clean redundant headers (e.g. '🙏 은혜의 기도문') and repair cut-off endings
 function cleanPrayerText(raw) {
   if (!raw) return '';
-  let text = String(raw).trim();
+  let text = sanitizePrayerGrammar(String(raw).trim());
 
   // 1. Remove all header-like lines at the beginning
   const lines = text.split('\n');
