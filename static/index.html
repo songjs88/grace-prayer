@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <title>은혜의 기도 | GraceAI - AI 성경구절 & 맞춤 기도문</title>
+  
+  <!-- SEO & Social Meta -->
+  <meta name="description" content="기도 제목을 적으면 꼭 맞는 성경구절 3개와 은혜로운 기도문을 생성해주는 AI 기도 도우미">
+  <meta name="theme-color" content="#070913">
+  
+  <!-- Mobile & PWA Web App Meta -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon-192.svg">
+  <link rel="apple-touch-icon" href="icon-192.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="은혜의 기도">
+  
+  <!-- Google Fonts: Noto Serif KR (성경/기도문) & Pretendard/Outfit (UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+KR:wght@300;400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-midnight">
+  <!-- Sacred Ambient Background Orbs -->
+  <div class="ambient-glow orb-1"></div>
+  <div class="ambient-glow orb-2"></div>
+  <div class="ambient-glow orb-3"></div>
+
+  <!-- Header: Clean, Simple & Mobile-Optimized -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-logo" id="brandLogo">
+        <div class="cross-icon-wrapper">
+          <svg class="cross-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="2" x2="12" y2="22"></line>
+            <line x1="5" y1="8" x2="19" y2="8"></line>
+          </svg>
+        </div>
+        <div class="brand-titles">
+          <h1 class="brand-name">은혜의 기도 <span class="brand-sub">GraceAI</span></h1>
+        </div>
+      </div>
+
+      <!-- Header Controls: Essential 3 buttons only -->
+      <div class="header-actions">
+        <!-- Saved Prayers Button -->
+        <button id="btnOpenHistory" class="header-icon-btn" title="나의 기도함 (보관함)" aria-label="나의 기도함">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="icon-label">기도함</span>
+          <span id="savedCountBadge" class="badge">0</span>
+        </button>
+
+        <!-- Theme Toggle -->
+        <button id="btnThemeToggle" class="header-icon-btn" title="테마 변경 (새벽 미명 / 따뜻한 서재)" aria-label="테마 변경">
+          <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </button>
+
+        <!-- Settings Button (AI Engine & Voice) -->
+        <button id="btnOpenSettings" class="header-icon-btn" title="설정 (Google AI / LM Studio)" aria-label="설정">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Sanctuary Layout -->
+  <main class="main-sanctuary">
+
+    <!-- Compact Devotional Verse Bar (Clean & inspiring, takes zero vertical space) -->
+    <div class="daily-verse-strip" id="dailyVerseStrip">
+      <span class="verse-symbol">✝</span>
+      <span class="verse-quote">"아무 것도 염려하지 말고 기도와 간구로 너희 구할 것을 감사함으로 하나님께 아뢰라"</span>
+      <span class="verse-ref">— 빌 4:6</span>
+    </div>
+
+    <!-- Prayer Generator Form Card: Core Focus, Clean & Prominent -->
+    <section class="sanctuary-card prayer-input-card">
+      <div class="card-header-compact">
+        <h2 class="card-title">
+          <span class="title-icon">🕊️</span>
+          기도 제목을 나누어주세요
+        </h2>
+        <p class="card-subtitle">
+          마음의 고민을 적으시면 <strong>성경 말씀 3개</strong>와 <strong>은혜로운 기도문</strong>을 정성껏 지어드립니다.
+        </p>
+      </div>
+
+      <!-- Quick Topic Chips (Smooth Horizontal Touch-Scroll on Mobile) -->
+      <div class="topic-chips-wrapper">
+        <div class="chips-list" id="chipsList">
+          <button type="button" class="topic-chip active" data-category="평안과 위로" data-topic="취업과 미래에 대한 불안으로 마음이 지치고 답답합니다. 하나님의 인도하심을 신뢰하고 평안을 얻고 싶습니다.">
+            🌿 평안과 위로
+          </button>
+          <button type="button" class="topic-chip" data-category="건강과 치유" data-topic="육신의 연약함과 질병으로 고통받고 있습니다. 치유하시는 여호와 라파 하나님의 손길로 강건케 회복되기를 간구합니다.">
+            🩺 건강과 치유
+          </button>
+          <button type="button" class="topic-chip" data-category="진로와 비전" data-topic="새로운 직장과 사업, 진로 결정을 앞두고 두려움이 앞섭니다. 내 뜻이 아닌 주님의 선하신 길을 깨닫는 지혜를 주세요.">
+            💼 진로와 비전
+          </button>
+          <button type="button" class="topic-chip" data-category="가족과 자녀" data-topic="사랑하는 가족들이 주 안에서 화목하고, 자녀들이 세상 속에서 믿음을 지키며 선한 길로 자라나기를 축복합니다.">
+            👨‍👩‍👧 가족과 자녀
+          </button>
+          <button type="button" class="topic-chip" data-category="감사와 찬양" data-topic="매일의 삶 속에서 부어주시는 크고 작은 은혜에 감사하며, 언제나 기쁨으로 주님을 찬양하는 삶이 되게 하옵소서.">
+            ☀️ 감사와 찬양
+          </button>
+          <button type="button" class="topic-chip" data-category="관계와 용서" data-topic="사람과의 관계로 인해 상처받고 닫힌 마음이 있습니다. 주님의 사랑으로 용서하고 화해할 수 있는 넉넉한 마음을 허락하소서.">
+            🤝 용서와 화해
+          </button>
+        </div>
+      </div>
+
+      <!-- Prayer Input Form -->
+      <form id="prayerForm" class="prayer-form">
+        <div class="input-group">
+          <div class="textarea-wrapper">
+            <textarea 
+              id="prayerTopicInput" 
+              name="prayerTopic" 
+              rows="4" 
+              maxlength="500" 
+              placeholder="예: 내일 중요한 시험과 면접이 있어 두렵고 떨립니다. 담대한 믿음과 평안을 허락해 주세요."
+              required
+            >취업과 미래에 대한 불안으로 마음이 지치고 답답합니다. 하나님의 인도하심을 신뢰하고 평안을 얻고 싶습니다.</textarea>
+            
+            <div class="textarea-bottom-bar">
+              <button type="button" id="btnClearTopic" class="btn-clear-input" title="지우기">✕ 지우기</button>
+              <span class="char-count" id="charCount">0 / 500자</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Collapsible Options (어조 / 대상 - 기본 접힘으로 모바일 화면 절약) -->
+        <div class="collapsible-options-box">
+          <button type="button" id="btnToggleOptions" class="btn-toggle-options" aria-expanded="false">
+            <span class="toggle-text">⚙️ 기도의 어조와 대상 선택 (기본: 위로와 평안)</span>
+            <span class="toggle-arrow" id="toggleOptionsArrow">▾</span>
+          </button>
+          <div id="collapsibleOptions" class="options-grid collapsed">
+            <div class="option-item">
+              <label for="prayerTone" class="option-label">기도의 마음 (어조)</label>
+              <select id="prayerTone" class="option-select">
+                <option value="위로와 평안" selected>🕊️ 위로와 평안 (따뜻하고 포근한)</option>
+                <option value="간절한 간구">🙏 간절한 간구 (애통함과 의탁)</option>
+                <option value="감사와 찬양">☀️ 감사와 찬양 (기쁨과 영광)</option>
+                <option value="담대한 결단과 용기">⚔️ 담대한 결단과 용기 (믿음의 선포)</option>
+                <option value="깊은 묵상과 쉼">🕯️ 깊은 묵상과 안식 (고요한 쉼)</option>
+              </select>
+            </div>
+            <div class="option-item">
+              <label for="prayerRecipient" class="option-label">기도 대상</label>
+              <select id="prayerRecipient" class="option-select">
+                <option value="나 자신" selected>👤 나 자신을 위한 기도</option>
+                <option value="사랑하는 가족/부모님/자녀">👨‍👩‍👦 가족 / 자녀 / 부모님</option>
+                <option value="친구나 지인">🤝 힘들어하는 친구 / 이웃</option>
+                <option value="교회와 공동체">⛪ 교회 / 공동체 / 나라</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button: Big, Sacred Gold & Mobile Full-Width -->
+        <div class="submit-action-wrapper">
+          <button type="submit" id="btnSubmitPrayer" class="btn-primary btn-submit-prayer">
+            <span class="btn-glow"></span>
+            <span class="btn-icon">🕊️</span>
+            <span class="btn-text">성경 말씀 & 은혜의 기도문 받기</span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Generation Loading / Streaming Card (Hidden by default) -->
+    <section id="streamingSection" class="sanctuary-card streaming-card hidden">
+      <div class="generating-header">
+        <div class="sacred-spinner">
+          <div class="spinner-ring"></div>
+          <span class="spinner-icon">🕊️</span>
+        </div>
+        <div class="generating-status-texts">
+          <div class="generating-title-row">
+            <h3 class="generating-title" id="generatingStatusTitle">주님의 말씀을 묵상하고 있습니다...</h3>
+            <span id="elapsedTimerBadge" class="timer-badge">⏱️ 00:00</span>
+          </div>
+          <p class="generating-subtitle" id="generatingStatusSubtitle">AI가 꼭 맞는 성경구절과 기도문을 정성껏 작성 중입니다</p>
+        </div>
+      </div>
+
+      <!-- Live Token Stream Preview -->
+      <div class="live-stream-preview" id="liveStreamPreview">
+        <span class="typing-cursor"></span>
+      </div>
+    </section>
+
+    <!-- Results Section (Visible after generation) -->
+    <div id="resultContainer" class="result-container hidden">
+      
+      <!-- Action Toolbar Above Results (Mobile-Optimized) -->
+      <div class="result-action-bar">
+        <div class="result-tag">
+          <span class="tag-icon">✨</span>
+          <span id="resultCategoryLabel">평안과 위로의 기도</span>
+        </div>
+
+        <div class="result-action-buttons">
+          <!-- Edge-TTS Natural AI Voice Controls -->
+          <div class="tts-control-pill" id="ttsControlPill" title="Microsoft Edge 고품질 AI Neural 음성 낭독">
+            <select id="selectVoice" class="voice-select-dropdown" aria-label="낭독 목소리 선택">
+              <option value="ko-KR-SunHiNeural" selected>선희 (따뜻한 여성)</option>
+              <option value="ko-KR-InJoonNeural">인준 (은혜로운 남성)</option>
+              <option value="ko-KR-HyunsuMultilingualNeural">현수 (부드러운 남성)</option>
+            </select>
+            <button id="btnTTSPrayer" class="action-btn tts-main-btn" title="기도문 고품질 AI 음성 낭독 (듣기)">
+              <span class="tts-icon-wrapper" id="ttsIconWrapper">
+                <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+              </span>
+              <span id="ttsBtnText">기도문 듣기</span>
+            </button>
+          </div>
+          
+          <button id="btnSavePrayer" class="action-btn" title="나의 기도함에 저장">
+            <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>기도함 저장</span>
+          </button>
+
+          <button id="btnCopyAll" class="action-btn" title="전체 복사 (구절 + 기도문)">
+            <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span>전체 복사</span>
+          </button>
+
+          <button id="btnOpenCardModal" class="action-btn highlight" title="말씀 카드 이미지 만들기">
+            <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>기도 카드</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Section 1: 3 Bible Verses -->
+      <section class="sanctuary-card verses-card">
+        <div class="section-title-wrap">
+          <div class="cross-divider"></div>
+          <h2 class="section-title">
+            <span class="icon">📖</span>
+            주님이 주시는 오늘의 약속의 말씀 (3구절)
+          </h2>
+          <p class="section-subtitle">기도 제목을 품고 마음에 새길 생명의 말씀입니다</p>
+        </div>
+
+        <div class="verses-grid" id="versesGrid">
+          <!-- Dynamic 3 Verse Cards rendered here -->
+        </div>
+      </section>
+
+      <!-- Section 2: Generated Prayer Letter -->
+      <section class="sanctuary-card prayer-letter-card">
+        <div class="prayer-letter-decoration">
+          <span class="latin-scripture">SOLI DEO GLORIA</span>
+        </div>
+        
+        <div class="prayer-letter-header">
+          <h2 class="prayer-title">은혜의 기도문</h2>
+          <p class="prayer-recipient-header" id="prayerRecipientTag">하나님 아버지 앞에 드리는 간구</p>
+        </div>
+
+        <div class="prayer-body" id="prayerBody">
+          <!-- Prayer paragraphs rendered here -->
+        </div>
+
+        <div class="prayer-footer">
+          <div class="amen-seal">
+            <span class="amen-text">아 멘</span>
+            <span class="amen-sub">Amen</span>
+          </div>
+          <p class="prayer-closing-declaration" id="prayerClosingDeclaration">
+            "우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘."
+          </p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Saved Prayers Modal (나의 기도함) -->
+  <div id="historyModal" class="modal-overlay hidden">
+    <div class="modal-container history-modal">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">📜</span>
+          <h3 class="modal-title">나의 기도함</h3>
+        </div>
+        <button id="btnCloseHistory" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="history-actions-bar">
+          <span id="historyTotalCount">저장된 기도: 0편</span>
+          <button id="btnClearAllHistory" class="btn-subtle-danger">전체 비우기</button>
+        </div>
+        <div id="historyList" class="history-list">
+          <!-- Dynamic Saved Prayers List -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal (Google Gemini API & LM Studio Dual Engine) -->
+  <div id="settingsModal" class="modal-overlay hidden">
+    <div class="modal-container settings-modal">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">⚙️</span>
+          <h3 class="modal-title">앱 설정 (AI 엔진 & 음성)</h3>
+        </div>
+        <button id="btnCloseSettings" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Engine Selector Tabs -->
+        <div class="engine-tab-switch">
+          <button type="button" id="tabGemini" class="tab-btn active" data-engine="gemini">
+            <span>✨ Google Gemini API</span>
+            <small>모바일/웹 배포용 (추천)</small>
+          </button>
+          <button type="button" id="tabLMStudio" class="tab-btn" data-engine="lmstudio">
+            <span>💻 LM Studio</span>
+            <small>내 PC 로컬 AI</small>
+          </button>
+        </div>
+
+        <!-- Google Gemini Settings Box -->
+        <div id="geminiSettingsBox" class="engine-settings-box">
+          <div class="setting-item">
+            <div class="label-with-link">
+              <label for="settingGeminiKey" class="setting-label">Google Gemini API 키</label>
+              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="link-external">
+                무료 키 1분 발급 ↗
+              </a>
+            </div>
+            <input type="password" id="settingGeminiKey" class="setting-input" placeholder="AIzaSy... (비워둘 시 서버 환경변수 사용)">
+            <p class="setting-help">
+              Google AI Studio에서 <strong>100% 무료</strong>로 발급받아 등록하실 수 있습니다. (서버 배포 시 <code>GEMINI_API_KEY</code> 환경변수로도 작동)
+            </p>
+          </div>
+
+          <div class="setting-item">
+            <label for="settingGeminiModel" class="setting-label">Gemini 모델 선택</label>
+            <select id="settingGeminiModel" class="setting-select">
+              <option value="gemini-2.5-flash" selected>gemini-2.5-flash (권장: 초고속 1.5초 & 고품질)</option>
+              <option value="gemini-1.5-flash">gemini-1.5-flash (안정적)</option>
+              <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- LM Studio Settings Box -->
+        <div id="lmStudioSettingsBox" class="engine-settings-box hidden">
+          <div class="setting-item">
+            <label for="settingHost" class="setting-label">LM Studio 주소 (API Host)</label>
+            <div class="input-with-btn">
+              <input type="text" id="settingHost" class="setting-input" value="http://127.0.0.1:1234">
+              <button type="button" id="btnTestConnection" class="btn-secondary">연결 확인</button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <label for="settingModel" class="setting-label">로컬 AI 모델</label>
+            <select id="settingModel" class="setting-select">
+              <option value="gemma-4-12b-it" selected>gemma-4-12b-it</option>
+            </select>
+          </div>
+          <div class="setting-connection-status">
+            <span class="status-key">서버 연결:</span>
+            <span class="status-val" id="serverStateVal">확인 중...</span>
+          </div>
+        </div>
+
+        <!-- Voice Settings -->
+        <div class="setting-item" style="margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle);">
+          <label for="settingDefaultVoice" class="setting-label">기도문 낭독 음성 (Microsoft Edge Neural AI)</label>
+          <select id="settingDefaultVoice" class="setting-select">
+            <option value="ko-KR-SunHiNeural" selected>선희 (따뜻하고 차분한 여성 성우 - 권장)</option>
+            <option value="ko-KR-InJoonNeural">인준 (은혜롭고 깊은 남성 성우)</option>
+            <option value="ko-KR-HyunsuMultilingualNeural">현수 (부드러운 남성 성우)</option>
+          </select>
+          <p class="setting-help">마이크로소프트 고품질 Neural AI 음성으로 자연스럽게 기도문을 낭독합니다.</p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnSaveSettings" class="btn-primary" style="width: 100%;">설정 저장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shareable Prayer Card Modal -->
+  <div id="cardModal" class="modal-overlay hidden">
+    <div class="modal-container prayer-card-modal">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">🎴</span>
+          <h3 class="modal-title">은혜의 기도 카드</h3>
+        </div>
+        <button id="btnCloseCardModal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body modal-card-body">
+        <div id="exportPrayerCard" class="export-prayer-card">
+          <div class="card-cross-watermark">✝</div>
+          <div class="card-header-verse" id="cardVerseRef">말씀과 함께하는 기도</div>
+          <blockquote class="card-quote" id="cardVerseQuote">"주의 말씀은 내 발에 등이요 내 길에 빛이니이다"</blockquote>
+          <div class="card-divider-line"></div>
+          <div class="card-topic-title" id="cardTopicTitle">기도 제목</div>
+          <p class="card-prayer-snippet" id="cardPrayerSnippet"></p>
+          <div class="card-footer-info">
+            <span class="card-date" id="cardDate">2026. 10. 05</span>
+            <span class="card-app-name">GraceAI 은혜의 기도</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer card-modal-footer">
+        <button id="btnCopyCardText" class="btn-secondary">카드 내용 복사</button>
+        <button id="btnPrintCard" class="btn-primary">인쇄 / PDF 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Application Script -->
+  <script src="app.js"></script>
+</body>
+</html>
