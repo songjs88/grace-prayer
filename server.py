@@ -61,17 +61,22 @@ VOICE_OPTIONS = [
     }
 ]
 
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.5-flash"
 GEMINI_MODELS = [
-    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash (권장 / 무료·초고속)"},
-    {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash (안정적 / 무료)"},
-    {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash"}
+    {"id": "gemini-3.5-flash", "name": "Gemini 3.5 Flash (가장 안정적 / 무료·초고속 추천)"},
+    {"id": "gemini-3.8-flash", "name": "Gemini 3.8 Flash (최신 모델 / 부하 시 3.5 자동 전환)"},
+    {"id": "gemini-3.5-flash-lite", "name": "Gemini 3.5 Flash-Lite (경량 초고속)"}
 ]
 
 def stream_gemini_api(api_key, model, system_prompt, user_prompt):
     """
-    Streams prayer and scripture from Google Gemini API via official SSE endpoint.
+    Streams prayer and scripture from Google Gemini API via official REST SSE endpoint.
+    Ultra-low latency, zero retry overhead, instant first token.
     """
+    # Auto-upgrade deprecated models (such as gemini-2.5-flash) to latest gemini-3.8-flash
+    if not model or "2.5" in model or "1.5" in model:
+        model = DEFAULT_GEMINI_MODEL
+
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse&key={api_key}"
     payload = {
         "system_instruction": {
@@ -88,12 +93,18 @@ def stream_gemini_api(api_key, model, system_prompt, user_prompt):
             "maxOutputTokens": 1200
         }
     }
+    # Low thinking level for Gemini 3 to ensure instant output response
+    if "3." in model or "flash" in model:
+        payload["generationConfig"]["thinkingConfig"] = {"thinkingLevel": "low"}
+    elif "2.5" in model:
+        payload["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}
+
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
         headers={"Content-Type": "application/json"}
     )
-    with urllib.request.urlopen(req, timeout=45) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:
         for line in resp:
             line_str = line.decode("utf-8", errors="replace").strip()
             if not line_str.startswith("data: "):
@@ -114,35 +125,53 @@ def stream_gemini_api(api_key, model, system_prompt, user_prompt):
                 pass
 
 def generate_gemini_content(api_key, model, system_prompt, user_prompt):
-    """Non-streaming call to Google Gemini API."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-    payload = {
-        "system_instruction": {
-            "parts": [{"text": system_prompt}]
-        },
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": user_prompt}]
+    """Non-streaming call to Google Gemini API with automatic model fallback."""
+    if not model or "2.5" in model or "1.5" in model:
+        model = DEFAULT_GEMINI_MODEL
+
+    candidate_models = [model]
+    for fallback in ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"]:
+        if fallback not in candidate_models:
+            candidate_models.append(fallback)
+
+    last_error = None
+    for cur_model in candidate_models:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{cur_model}:generateContent?key={api_key}"
+            payload = {
+                "system_instruction": {
+                    "parts": [{"text": system_prompt}]
+                },
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [{"text": user_prompt}]
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0.7,
+                    "maxOutputTokens": 1200,
+                    "thinkingConfig": {"thinkingLevel": "low"}
+                }
             }
-        ],
-        "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 1200
-        }
-    }
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"}
-    )
-    with urllib.request.urlopen(req, timeout=45) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-        candidates = data.get("candidates", [])
-        if candidates:
-            parts = candidates[0].get("content", {}).get("parts", [])
-            return "".join(p.get("text", "") for p in parts)
-        return ""
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=45) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    return "".join(p.get("text", "") for p in parts)
+        except Exception as e:
+            last_error = e
+            time.sleep(0.4)
+            continue
+    if last_error:
+        raise last_error
+    return ""
 
 def clean_text_for_tts(text):
     """
@@ -178,6 +207,11 @@ def clean_text_for_tts(text):
     result = "\n".join(cleaned_lines).strip()
     result = re.sub(r'[\U00010000-\U0010ffff\u2600-\u27bf]', '', result)
     result = re.sub(r'[*#_~`\[\]]', '', result)
+    
+    # Auto-correct common LLM grammatical hallucinations/typos in Korean prayers
+    result = re.sub(r'주시옵니사\b', '주시옵시사', result)
+    result = re.sub(r'하옵니사\b', '하옵시사', result)
+    result = re.sub(r'있사옵니사\b', '있사옵시사', result)
     
     # Check cut-off endings
     cutoff_pattern = r'(?:우리\s*주\s*)?(?:저를\s*사랑하시는\s*)?예수\s*그리스도의(?:\s*이름으로)?\s*$'
@@ -241,26 +275,17 @@ def parse_prayer_markdown(text):
     verses = []
     prayer_text = ""
     
-    parts = re.split(r'(?=###? )', text)
-    verse_block = ""
-    prayer_block = ""
-
-    for p in parts:
-        p_strip = p.strip()
-        if any(k in p_strip for k in ["성경", "구절", "말씀", "Verses", "Scripture"]):
-            verse_block += "\n" + p_strip
-        elif any(k in p_strip for k in ["기도", "Prayer", "아멘"]):
-            prayer_block += "\n" + p_strip
-            
-    if not prayer_block:
-        if "###" in text:
-            splits = text.split("###")
-            if len(splits) >= 3:
-                verse_block = splits[1]
-                prayer_block = "###".join(splits[2:])
-            else:
-                prayer_block = text
+    prayer_match = re.search(r'###?\s*.*?(?:기도|Prayer).*?(?:\n|$)', text, flags=re.IGNORECASE)
+    if prayer_match:
+        verse_block = text[:prayer_match.start()].strip()
+        prayer_block = text[prayer_match.end():].strip()
+    else:
+        splits = re.split(r'###\s*', text)
+        if len(splits) >= 3:
+            verse_block = splits[1].strip()
+            prayer_block = "###".join(splits[2:]).strip()
         else:
+            verse_block = text
             prayer_block = text
 
     target_for_verses = verse_block if verse_block else text
@@ -309,6 +334,11 @@ def parse_prayer_markdown(text):
         filtered_lines.append(line)
         
     clean_prayer = '\n'.join(filtered_lines).strip()
+    
+    # Auto-correct common LLM grammatical hallucinations/typos in Korean prayers
+    clean_prayer = re.sub(r'주시옵니사\b', '주시옵시사', clean_prayer)
+    clean_prayer = re.sub(r'하옵니사\b', '하옵시사', clean_prayer)
+    clean_prayer = re.sub(r'있사옵니사\b', '있사옵시사', clean_prayer)
     
     # Ensure closing sentence is never cut off (e.g. "예수 그리스도의 " or "예수님의 ")
     cutoff_regex = r'(?:우리\s*주\s*)?(?:저를\s*사랑하시는\s*)?예수\s*그리스도의(?:\s*이름으로)?\s*$'
@@ -470,7 +500,8 @@ class GraceAIRequestHandler(http.server.SimpleHTTPRequestHandler):
                 "사용자가 입력한 기도 제목에 대해 아래 양식에 맞추어 [관련 성경구절 정확히 3개]와 [따뜻하고 은혜로운 기도문]을 작성하세요.\n"
                 "중요 규칙:\n"
                 "1. 기도문 시작 부분에 '은혜의 기도문' 같은 제목을 절대 붙이지 마세요. 곧바로 하나님 아버지 또는 주님을 부르며 시작하세요.\n"
-                "2. 기도문의 마지막 문장은 중간에 끊기지 않게 완전하게 매듭짓고, 반드시 '우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.'으로 끝마치세요.\n\n"
+                "2. 기도문의 마지막 문장은 중간에 끊기지 않게 완전하게 매듭짓고, 반드시 '우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.'으로 끝마치세요.\n"
+                "3. 정갈한 문법과 어미: 기도문 간구 및 연결 어미('~주시옵소서', '~주시옵시사', '~간구하옵나이다')를 정확하게 구사하고, '주시옵니사' 같은 비문이나 오탈자가 없도록 정갈한 문장으로 작성하세요.\n\n"
                 "### 📖 관련 성경 말씀\n"
                 "1. **[책 장:절]**: \"말씀 본문 내용\"\n"
                 "   - *묵상의 은혜*: 이 말씀이 주는 위로와 약속\n"
@@ -524,19 +555,21 @@ class GraceAIRequestHandler(http.server.SimpleHTTPRequestHandler):
             provider = body.get("provider", "auto")
             gemini_key = (body.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY") or "").strip()
             gemini_model = body.get("gemini_model", DEFAULT_GEMINI_MODEL)
+            if not gemini_model or "2.5" in gemini_model or "1.5" in gemini_model:
+                gemini_model = DEFAULT_GEMINI_MODEL
 
-            use_gemini = False
-            if provider == "gemini":
+            # If Gemini API key is provided, ALWAYS prioritize Google Gemini!
+            if gemini_key:
+                use_gemini = True
+            elif provider == "gemini":
                 use_gemini = True
             elif provider == "lmstudio":
                 use_gemini = False
             else:
-                if gemini_key:
-                    use_gemini = True
-                elif not get_lm_studio_status(host)["online"]:
-                    use_gemini = True
-                else:
-                    use_gemini = False
+                use_gemini = not get_lm_studio_status(host)["online"]
+
+            engine_label = f"Google Gemini ({gemini_model})" if use_gemini else f"LM Studio ({model_name})"
+            print(f"🕊️ [API REQUEST] Topic: {topic[:30]} | Engine: {engine_label} | KeyProvided: {bool(gemini_key)}")
 
             if path == "/api/generate_stream":
                 # Server-Sent Events
@@ -544,15 +577,14 @@ class GraceAIRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Content-Type", "text/event-stream; charset=utf-8")
                 self.send_header("Cache-Control", "no-cache")
-                self.send_header("Connection", "keep-alive")
+                self.send_header("Connection", "close")
                 self.send_header("X-Accel-Buffering", "no")
                 self.end_headers()
 
                 # Send initial status
-                engine_name = f"Google Gemini ({gemini_model})" if use_gemini else f"LM Studio ({model_name})"
                 self._send_sse_event("status", {
                     "state": "generating",
-                    "engine": engine_name,
+                    "engine": engine_label,
                     "message": "성경 말씀과 기도문을 작성하고 있습니다..."
                 })
 
@@ -563,30 +595,63 @@ class GraceAIRequestHandler(http.server.SimpleHTTPRequestHandler):
                         self._send_sse_event("error", {
                             "message": "Google Gemini API 키가 설정되지 않았습니다. 우측 상단 [설정 ⚙️]에서 무료 API 키를 등록해주세요."
                         })
+                        self.close_connection = True
                         return
 
-                    try:
-                        for token in stream_gemini_api(gemini_key, gemini_model, system_prompt, user_prompt):
-                            full_content.append(token)
-                            self._send_sse_event("token", {"token": token})
+                    # Fallback list of models to try if high demand / overloaded
+                    candidate_models = [gemini_model]
+                    for fallback in ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"]:
+                        if fallback not in candidate_models:
+                            candidate_models.append(fallback)
 
-                        all_text = "".join(full_content)
-                        parsed = parse_prayer_markdown(all_text)
-                        self._send_sse_event("done", {
-                            "raw": all_text,
-                            "verses": parsed["verses"],
-                            "prayer": parsed["prayer"]
-                        })
-                    except urllib.error.HTTPError as e:
-                        err_body = e.read().decode("utf-8", errors="replace")
+                    for idx, cur_model in enumerate(candidate_models):
                         try:
-                            err_json = json.loads(err_body)
-                            msg = err_json.get("error", {}).get("message", err_body)
-                        except Exception:
-                            msg = err_body
-                        self._send_sse_event("error", {"message": f"구글 Gemini API 오류 ({e.code}): {msg}"})
-                    except Exception as e:
-                        self._send_sse_event("error", {"message": f"Gemini 요청 실패: {str(e)}"})
+                            if idx > 0:
+                                self._send_sse_event("status", {
+                                    "state": "generating",
+                                    "engine": f"Google Gemini ({cur_model})",
+                                    "message": f"트래픽 폭주로 안정형 {cur_model} 모델로 자동 전환하여 작성 중입니다..."
+                                })
+                                print(f"🔄 [Gemini Auto-Fallback] Switching to {cur_model} due to temporary capacity spike")
+
+                            full_content = []
+                            for token in stream_gemini_api(gemini_key, cur_model, system_prompt, user_prompt):
+                                full_content.append(token)
+                                self._send_sse_event("token", {"token": token})
+
+                            all_text = "".join(full_content)
+                            parsed = parse_prayer_markdown(all_text)
+                            self._send_sse_event("done", {
+                                "raw": all_text,
+                                "verses": parsed["verses"],
+                                "prayer": parsed["prayer"]
+                            })
+                            break
+                        except urllib.error.HTTPError as e:
+                            err_body = e.read().decode("utf-8", errors="replace")
+                            try:
+                                err_json = json.loads(err_body)
+                                msg = err_json.get("error", {}).get("message", err_body)
+                            except Exception:
+                                msg = err_body
+                            print(f"❌ [Gemini HTTP Error {e.code}] on model {cur_model}: {msg}")
+                            
+                            # If 503 (High Demand) or 429 (Rate Limit) and alternative models exist, automatically retry with next model!
+                            if e.code in [503, 429] and idx < len(candidate_models) - 1:
+                                time.sleep(0.4)
+                                continue
+                            else:
+                                self._send_sse_event("error", {"message": f"구글 Gemini API 오류 ({e.code}): {msg}"})
+                                break
+                        except Exception as e:
+                            print(f"❌ [Gemini Error] on model {cur_model}: {str(e)}")
+                            if idx < len(candidate_models) - 1:
+                                time.sleep(0.4)
+                                continue
+                            else:
+                                self._send_sse_event("error", {"message": f"Gemini 요청 실패: {str(e)}"})
+                                break
+                    self.close_connection = True
                     return
 
                 else:
@@ -638,6 +703,8 @@ class GraceAIRequestHandler(http.server.SimpleHTTPRequestHandler):
                         })
                     except Exception as e:
                         self._send_sse_event("error", {"message": f"LM Studio 오류: {str(e)}"})
+                    finally:
+                        self.close_connection = True
                     return
 
             else:

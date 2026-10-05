@@ -9,7 +9,14 @@
 const state = {
   provider: localStorage.getItem('grace_provider') || 'gemini',
   geminiKey: localStorage.getItem('grace_gemini_key') || '',
-  geminiModel: localStorage.getItem('grace_gemini_model') || 'gemini-2.5-flash',
+  geminiModel: (() => {
+    const saved = localStorage.getItem('grace_gemini_model');
+    if (!saved || saved === 'gemini-2.5-flash' || saved === 'gemini-1.5-flash') {
+      localStorage.setItem('grace_gemini_model', 'gemini-3.5-flash');
+      return 'gemini-3.5-flash';
+    }
+    return saved;
+  })(),
   hasGeminiEnvKey: false,
   lmStudioOnline: false,
   activeModel: 'gemma-4-12b-it',
@@ -162,13 +169,16 @@ async function initServerConfig() {
       const data = await res.json();
       state.hasGeminiEnvKey = !!data.has_gemini_env;
       
-      // If server has Gemini ENV key or user hasn't explicitly set provider
-      if (!localStorage.getItem('grace_provider')) {
+      // If user has saved a Gemini key, ensure provider is gemini!
+      if (state.geminiKey) {
+        state.provider = 'gemini';
+      } else if (!localStorage.getItem('grace_provider')) {
         state.provider = data.default_provider || 'gemini';
       }
       
-      if (data.default_gemini_model && !localStorage.getItem('grace_gemini_model')) {
-        state.geminiModel = data.default_gemini_model;
+      if (!state.geminiModel || state.geminiModel === 'gemini-2.5-flash' || state.geminiModel === 'gemini-1.5-flash') {
+        state.geminiModel = data.default_gemini_model || 'gemini-3.5-flash';
+        localStorage.setItem('grace_gemini_model', state.geminiModel);
       }
       
       if (data.gemini_models && elements.settingGeminiModel) {
@@ -426,10 +436,44 @@ function setupEventListeners() {
         if (elements.selectVoice) elements.selectVoice.value = state.ttsVoice;
       }
 
+      // Determine provider from active tab or key
+      if (elements.tabGemini && elements.tabGemini.classList.contains('active')) {
+        state.provider = 'gemini';
+        localStorage.setItem('grace_provider', 'gemini');
+      } else if (elements.tabLMStudio && elements.tabLMStudio.classList.contains('active')) {
+        state.provider = 'lmstudio';
+        localStorage.setItem('grace_provider', 'lmstudio');
+      } else if (state.geminiKey) {
+        state.provider = 'gemini';
+        localStorage.setItem('grace_provider', 'gemini');
+      }
+
       updateEngineUI();
       closeModal(elements.settingsModal);
       const engineLabel = state.provider === 'gemini' ? 'Google Gemini' : 'LM Studio';
       showToast(`설정이 저장되었습니다 (${engineLabel})`);
+    });
+  }
+
+  // Auto-sync Gemini key as soon as typed or pasted
+  if (elements.settingGeminiKey) {
+    elements.settingGeminiKey.addEventListener('input', () => {
+      const keyVal = elements.settingGeminiKey.value.trim();
+      state.geminiKey = keyVal;
+      localStorage.setItem('grace_gemini_key', keyVal);
+      if (keyVal) {
+        state.provider = 'gemini';
+        localStorage.setItem('grace_provider', 'gemini');
+      }
+      updateEngineUI();
+    });
+  }
+
+  if (elements.settingGeminiModel) {
+    elements.settingGeminiModel.addEventListener('change', () => {
+      state.geminiModel = elements.settingGeminiModel.value;
+      localStorage.setItem('grace_gemini_model', state.geminiModel);
+      updateEngineUI();
     });
   }
 
@@ -580,46 +624,54 @@ async function handlePrayerSubmit(e) {
 
         if (!dataStr) continue;
 
+        let payload = null;
         try {
-          const payload = JSON.parse(dataStr);
-
-          if (eventType === 'status') {
-            if (elements.generatingStatusTitle) elements.generatingStatusTitle.textContent = payload.message || '작성 중...';
-          } else if (eventType === 'thinking') {
-            accumulatedThinking += payload.token;
-            if (elements.thinkingBox) elements.thinkingBox.classList.remove('hidden');
-            if (elements.thinkingContent) elements.thinkingContent.textContent = accumulatedThinking;
-            if (elements.thinkingPreview) elements.thinkingPreview.textContent = accumulatedThinking.slice(-40) + '...';
-          } else if (eventType === 'token') {
-            accumulatedContent += payload.token;
-            // Update preview
-            elements.liveStreamPreview.innerHTML = escapeHtml(accumulatedContent) + '<span class="typing-cursor"></span>';
-            elements.liveStreamPreview.scrollTop = elements.liveStreamPreview.scrollHeight;
-          } else if (eventType === 'done') {
-            renderFinalResults({
-              topic: topic,
-              category: category,
-              tone: tone,
-              recipient: recipient,
-              verses: payload.verses || [],
-              prayer: payload.prayer || accumulatedContent,
-              raw: payload.raw || accumulatedContent,
-              date: new Date().toISOString()
-            });
-          } else if (eventType === 'error') {
-            throw new Error(payload.message || '기도 생성 중 오류가 발생했습니다.');
-          }
+          payload = JSON.parse(dataStr);
         } catch (parseErr) {
           console.warn('SSE Chunk parse notice:', parseErr);
+          continue;
+        }
+
+        if (eventType === 'status') {
+          if (elements.generatingStatusTitle) elements.generatingStatusTitle.textContent = payload.message || '작성 중...';
+          if (payload.engine && elements.generatingStatusSubtitle) {
+            elements.generatingStatusSubtitle.textContent = `${payload.engine}가 성경 말씀 3개와 기도문을 짓는 중입니다`;
+          }
+        } else if (eventType === 'token') {
+          accumulatedContent += payload.token;
+          // Update preview
+          if (elements.liveStreamPreview) {
+            elements.liveStreamPreview.innerHTML = escapeHtml(accumulatedContent) + '<span class="typing-cursor"></span>';
+            elements.liveStreamPreview.scrollTop = elements.liveStreamPreview.scrollHeight;
+          }
+        } else if (eventType === 'done') {
+          clearInterval(timerInterval);
+          renderFinalResults({
+            topic: topic,
+            category: category,
+            tone: tone,
+            recipient: recipient,
+            verses: payload.verses || [],
+            prayer: payload.prayer || accumulatedContent,
+            raw: payload.raw || accumulatedContent,
+            date: new Date().toISOString()
+          });
+          try { await reader.cancel(); } catch (e) {}
+          return;
+        } else if (eventType === 'error') {
+          clearInterval(timerInterval);
+          const errMsg = payload.message || '기도 생성 중 오류가 발생했습니다.';
+          try { await reader.cancel(); } catch (e) {}
+          throw new Error(errMsg);
         }
       }
     }
 
   } catch (err) {
     console.error('Generation error:', err);
-    showToast(`오류: ${err.message}`, true);
-    elements.generatingStatusTitle.textContent = '생성 중 문제가 발생했습니다';
-    elements.generatingStatusSubtitle.textContent = 'LM Studio의 서버 상태와 모델 로딩 상태를 확인해주세요.';
+    showToast(err.message, true);
+    if (elements.generatingStatusTitle) elements.generatingStatusTitle.textContent = '생성 중 오류 발생';
+    if (elements.generatingStatusSubtitle) elements.generatingStatusSubtitle.textContent = err.message;
   } finally {
     clearInterval(timerInterval);
     state.isGenerating = false;
@@ -697,27 +749,52 @@ function renderFinalResults(data) {
 
   // Clean and format prayer text
   const cleanPrayer = cleanPrayerText(data.prayer);
-  data.prayer = cleanPrayer;
   
-  // Format into paragraphs and separate closing declaration
-  const allParagraphs = cleanPrayer.split('\n\n').filter(p => p.trim());
+  // Format into paragraphs and separate closing declaration safely without dropping any middle paragraphs
+  const allParagraphs = cleanPrayer.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
   const mainParagraphs = [];
   let closingText = '우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.';
 
-  for (const p of allParagraphs) {
-    const trimmed = p.trim();
-    if (trimmed.includes('예수 그리스도의 이름으로') || trimmed.includes('예수님의 이름으로') || trimmed === '아멘.' || trimmed === '아멘') {
-      closingText = trimmed.replace(/^["'“”]|["'“”]$/g, '').trim();
+  if (allParagraphs.length > 0) {
+    const lastP = allParagraphs[allParagraphs.length - 1];
+    
+    // Only separate the VERY LAST paragraph if it is solely a short closing line (< 70 chars)
+    const isClosingOnly = lastP.length < 70 && (
+      lastP.includes('예수 그리스도') ||
+      lastP.includes('예수님') ||
+      lastP.includes('기도드립니다') ||
+      lastP.includes('기도합니다') ||
+      lastP.endsWith('아멘.') ||
+      lastP.endsWith('아멘')
+    );
+
+    if (isClosingOnly) {
+      closingText = lastP.replace(/^["'“”]|["'“”]$/g, '').trim();
+      mainParagraphs.push(...allParagraphs.slice(0, allParagraphs.length - 1));
     } else {
-      mainParagraphs.push(trimmed);
+      // If the last paragraph contains prayer content ending with a closing sentence
+      const lines = lastP.split('\n').map(l => l.trim()).filter(Boolean);
+      const lastLine = lines[lines.length - 1];
+      if (lines.length > 1 && lastLine.length < 70 && (lastLine.includes('예수') || lastLine.includes('아멘'))) {
+        closingText = lastLine.replace(/^["'“”]|["'“”]$/g, '').trim();
+        const remainingP = lines.slice(0, lines.length - 1).join('\n');
+        mainParagraphs.push(...allParagraphs.slice(0, allParagraphs.length - 1), remainingP);
+      } else {
+        mainParagraphs.push(...allParagraphs);
+      }
     }
   }
 
+  // Render every single prayer paragraph so nothing is hidden
   elements.prayerBody.innerHTML = mainParagraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('');
   const closingEl = document.getElementById('prayerClosingDeclaration');
   if (closingEl) {
     closingEl.textContent = `"${closingText}"`;
   }
+
+  // Ensure state.currentPrayerData.prayer has 100% parity with what is shown on screen
+  const fullSynchronizedPrayer = mainParagraphs.join('\n\n') + '\n\n' + closingText;
+  state.currentPrayerData.prayer = fullSynchronizedPrayer;
 
   // Auto-scroll down smoothly to results
   elements.resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
