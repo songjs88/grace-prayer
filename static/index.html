@@ -23,7 +23,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+KR:wght@300;400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 
-  <link rel="stylesheet" href="style.css?v=1.7">
+  <link rel="stylesheet" href="style.css?v=1.8">
 </head>
 <body class="theme-midnight">
   <!-- Sacred Ambient Background Orbs -->
@@ -304,10 +304,23 @@
   </main>
 
   <!-- App Peaceful Footer -->
-  <footer class="app-footer" style="text-align: center; padding: 2.5rem 1rem 3.5rem; color: var(--text-dim); font-size: 0.85rem;">
-    <p style="margin-bottom: 0.4rem; color: var(--gold-light); font-weight: 600;">은혜의 기도 · GraceAI</p>
-    <p style="font-size: 0.78rem; opacity: 0.8; margin-bottom: 0.8rem;">"너희 구할 것을 감사함으로 하나님께 아뢰라" (빌립보서 4:6)</p>
-    <button id="btnOpenSettings" class="footer-settings-link" style="background:none; border:none; color:var(--text-dim); font-size:0.75rem; cursor:pointer; opacity:0.35; padding: 4px 8px;" title="개발/관리자 설정">⚙️ 설정</button>
+  <footer class="app-footer" style="text-align: center; padding: 2.5rem 1rem 4rem; color: var(--text-dim); font-size: 0.85rem;">
+    <!-- YouTube Channel Link: 멜로디 성경 -->
+    <div style="margin: 0 auto 1.5rem; display: inline-flex; align-items: center; justify-content: center;">
+      <a href="https://www.youtube.com/@TheBible-Songs" target="_blank" rel="noopener noreferrer" 
+         style="display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.65rem 1.3rem; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.38); border-radius: 999px; color: #ff6b6b; text-decoration: none; font-size: 0.88rem; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.12);">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        </svg>
+        <span>유튜브 <strong>멜로디 성경</strong></span>
+        <span style="font-size: 0.75rem; opacity: 0.85;">↗</span>
+      </a>
+    </div>
+
+    <p style="margin-bottom: 0.35rem; color: var(--gold-light); font-weight: 600; letter-spacing: 0.02em;">은혜의 기도 · GraceAI</p>
+    <p style="font-size: 0.78rem; opacity: 0.8;">"너희 구할 것을 감사함으로 하나님께 아뢰라" (빌립보서 4:6)</p>
+    <!-- Hidden settings button for script safety -->
+    <button id="btnOpenSettings" style="display: none !important;" aria-hidden="true"></button>
   </footer>
 
   <!-- Saved Prayers Modal (나의 기도함) -->
@@ -455,7 +468,7 @@
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Application Script (cache-busting v=1.7) -->
-  <script src="app.js?v=1.7"></script>
+  <!-- Application Script (cache-busting v=1.8) -->
+  <script src="app.js?v=1.8"></script>
 </body>
 </html>
