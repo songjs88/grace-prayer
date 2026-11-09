@@ -124,7 +124,7 @@ const SAMPLE_PRAYERS = {
 const state = {
   provider: localStorage.getItem('grace_provider') || 'gemini',
   geminiKey: localStorage.getItem('grace_gemini_key') || getSharedKey(),
-  geminiModel: 'gemini-3.5-flash',
+  geminiModel: localStorage.getItem('grace_gemini_model') || 'gemini-3.5-flash-lite',
   hasBackendServer: false,
   hasGeminiEnvKey: false,
   lmStudioOnline: false,
@@ -301,7 +301,7 @@ async function initServerConfig() {
     }
   }
   if (elements.settingGeminiModel) {
-    elements.settingGeminiModel.value = 'gemini-3.5-flash';
+    elements.settingGeminiModel.value = state.geminiModel || 'gemini-3.5-flash-lite';
   }
   if (elements.settingHost) {
     elements.settingHost.value = state.hostUrl;
@@ -501,6 +501,10 @@ function setupEventListeners() {
           localStorage.removeItem('grace_gemini_key');
         }
       }
+      if (elements.settingGeminiModel) {
+        state.geminiModel = elements.settingGeminiModel.value;
+        localStorage.setItem('grace_gemini_model', state.geminiModel);
+      }
       if (elements.settingHost) {
         state.hostUrl = elements.settingHost.value.trim();
         localStorage.setItem('grace_lm_host', state.hostUrl);
@@ -626,9 +630,9 @@ ${topic}`;
 
   try {
     if (state.provider === 'gemini') {
-      accumulatedContent = await callGeminiDirectStream(
+      accumulatedContent = await callGeminiWithFallback(
         activeKey,
-        'gemini-3.5-flash',
+        state.geminiModel || 'gemini-3.5-flash-lite',
         systemPrompt,
         userPrompt,
         (token) => {
@@ -636,6 +640,15 @@ ${topic}`;
           if (elements.liveStreamPreview) {
             elements.liveStreamPreview.innerHTML = escapeHtml(accumulatedContent) + '<span class="typing-cursor"></span>';
             elements.liveStreamPreview.scrollTop = elements.liveStreamPreview.scrollHeight;
+          }
+        },
+        (statusMsg) => {
+          accumulatedContent = '';
+          if (elements.liveStreamPreview) {
+            elements.liveStreamPreview.innerHTML = `<span style="color:var(--gold-primary); font-size:0.9rem;">${escapeHtml(statusMsg)}</span><br><br><span class="typing-cursor"></span>`;
+          }
+          if (elements.generatingStatusSubtitle) {
+            elements.generatingStatusSubtitle.textContent = statusMsg;
           }
         }
       );
@@ -680,6 +693,51 @@ ${topic}`;
     elements.btnSubmitPrayer.disabled = false;
     elements.btnSubmitPrayer.style.opacity = '1';
   }
+}
+
+// Robust Google Gemini API Streaming with Multi-Model Auto Failover
+async function callGeminiWithFallback(apiKey, preferredModel, systemPrompt, userPrompt, onToken, onStatusUpdate) {
+  const candidateModels = [
+    preferredModel || 'gemini-3.5-flash-lite',
+    'gemini-3.5-flash-lite',
+    'gemini-flash-lite-latest',
+    'gemini-3.5-flash'
+  ];
+  const modelsToTry = Array.from(new Set(candidateModels.filter(Boolean)));
+  let lastError = null;
+
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const currentModel = modelsToTry[i];
+    try {
+      if (i > 0 && onStatusUpdate) {
+        onStatusUpdate(`트래픽 급증으로 대체 초고속 AI 모델(${currentModel})로 자동 전환하여 생성 중입니다...`);
+      }
+      const result = await callGeminiDirectStream(apiKey, currentModel, systemPrompt, userPrompt, onToken);
+      return result;
+    } catch (err) {
+      lastError = err;
+      const errMsg = (err.message || '').toLowerCase();
+      const isCapacityIssue = (
+        errMsg.includes('high demand') ||
+        errMsg.includes('503') ||
+        errMsg.includes('429') ||
+        errMsg.includes('resource_exhausted') ||
+        errMsg.includes('temporarily') ||
+        errMsg.includes('overloaded') ||
+        errMsg.includes('rate limit') ||
+        errMsg.includes('timed out') ||
+        errMsg.includes('연결할 수 없습니다')
+      );
+
+      if (isCapacityIssue && i < modelsToTry.length - 1) {
+        console.warn(`[Gemini Failover] Model ${currentModel} error (${err.message}). Retrying with ${modelsToTry[i + 1]}...`);
+        await new Promise(res => setTimeout(res, 600));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
 }
 
 // Direct Google Gemini API Streaming from browser
