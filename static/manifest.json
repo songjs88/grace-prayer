@@ -2,7 +2,7 @@
   "name": "은혜의 기도 - GraceAI",
   "short_name": "은혜의 기도",
   "description": "AI 맞춤 성경구절 3개와 따뜻하고 은혜로운 기도문",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#070913",
   "theme_color": "#0f1424",

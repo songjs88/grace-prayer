@@ -38,36 +38,35 @@
 
 ## 🚀 실행 방법
 
-### 방법 1. 간편 실행 (권장)
-1. **LM Studio** 프로그램 실행 후 상단 **'Status: Running'** (초록색 토글)이 켜져 있는지 확인합니다.
-   - 모델: `gemma-4-12b-it` (로드 완료 상태)
-   - 포트: `http://127.0.0.1:1234`
-2. `d:\LLM-API\run_app.bat` 파일을 더블 클릭합니다.
-3. 웹 브라우저(`http://127.0.0.1:8000`)가 자동으로 열리며 앱이 시작됩니다.
+### 방법 1. 깃허브 웹앱으로 바로 접속 (추천 / 설치 없이 즉시 실행)
+별도의 서버나 프로그램 설치 없이 브라우저에서 즉시 실행할 수 있습니다.
+* **웹앱 주소**: [https://songjs88.github.io/grace-prayer/](https://songjs88.github.io/grace-prayer/)
+* **GitHub Pages 설정 방법**:
+  1. 깃허브 저장소 상단 **Settings** -> 좌측 **Pages** 메뉴 클릭
+  2. Build and deployment의 **Source**를 `Deploy from a branch`로 선택
+  3. **Branch**를 `main`, 폴더를 `/(root)`로 지정 후 **Save** 클릭
+  4. 약 1~2분 후 생성된 웹 주소로 스마트폰과 PC 어디서든 즉시 접속 가능합니다.
+* **사용 팁**: 구글 Gemini 무료 API 키를 등록하시면 매일 1,500회 무료로 실시간 맞춤 기도가 작성되며, 키 없이도 즉시 고품질 샘플 기도문과 음성 낭독(TTS)을 체험하실 수 있습니다.
 
-### 방법 2. 터미널 명령어로 실행
-```bash
-# 디렉터리 이동
-cd d:\LLM-API
-
-# 서버 실행
-python server.py
-```
-실행 후 브라우저에서 [http://127.0.0.1:8000](http://127.0.0.1:8000)으로 접속하시면 됩니다.
+### 방법 2. 내 컴퓨터에서 직접 실행 (LM Studio 로컬 AI 연동)
+1. **LM Studio** 실행 후 상단 **'Status: Running'** 확인 (`http://127.0.0.1:1234`)
+2. `run_app.bat` 더블 클릭 또는 터미널에서 `python server.py` 실행
+3. 웹 브라우저(`http://127.0.0.1:8000`) 접속
 
 ---
 
 ## 📁 프로젝트 구조
 
 ```
-d:/LLM-API/
-├── server.py        # Python 백엔드 (LM Studio 프록시 & SSE 스트리밍 서버)
-├── run_app.bat      # 윈도우 원클릭 실행 배치 파일
-├── test_lmstudio.py # LM Studio 연결 테스트 스크립트
-├── static/
-│   ├── index.html   # 성도 중심의 아름다운 기도 생추어리 UI
-│   ├── style.css    # 글래스모피즘, 성스러운 골드 빛, 다크/양피지 테마
-│   └── app.js       # 실시간 SSE 스트리밍, 음성 낭독(TTS), 기도 보관함 로직
+grace-prayer/
+├── index.html       # ⭐ 깃허브 배포용 단일 완성형 웹앱 (GitHub Pages 엔트리)
+├── style.css        # 글래스모피즘 & 성스러운 골드 빛 다크/양피지 테마
+├── app.js           # 브라우저 직접 AI 연동 (Gemini 스트리밍 / Web Speech TTS)
+├── manifest.json    # 모바일 PWA 홈화면 앱 설치 설정
+├── icon-192.svg     # 고화질 벡터 골드 십자가 아이콘
+├── server.py        # Python 백엔드 (LM Studio 프록시 & Edge-TTS 서버)
+├── run_app.bat      # 윈도우 원클릭 로컬 실행 배치 파일
+├── static/          # 백엔드 서버용 정적 리소스 모듈
 └── README.md        # 안내 문서
 ```
 
