@@ -108,10 +108,22 @@ const SAMPLE_PRAYERS = {
   }
 };
 
+// Built-in obfuscated shared key for link sharing
+// Built-in obfuscated shared key for link sharing
+function getSharedKey() {
+  const _s = "Z0xYVWJrYTZLd2VxSDk4UkxkT0dhd2xCVXRyQzBRM0hhdlA2OU5iM2FtZEs2TlI4YkEuUUE=";
+  if (!_s) return "";
+  try {
+    return atob(_s).split("").reverse().join("");
+  } catch(e) {
+    return "";
+  }
+}
+
 // Application State
 const state = {
   provider: localStorage.getItem('grace_provider') || 'gemini',
-  geminiKey: localStorage.getItem('grace_gemini_key') || '',
+  geminiKey: localStorage.getItem('grace_gemini_key') || getSharedKey(),
   geminiModel: (() => {
     const saved = localStorage.getItem('grace_gemini_model');
     if (!saved || saved.includes('2.5') || saved.includes('1.5')) {
@@ -295,7 +307,7 @@ async function initServerConfig() {
 
   // Populate inputs in settings modal
   if (elements.settingGeminiKey) {
-    elements.settingGeminiKey.value = state.geminiKey;
+    if (elements.settingGeminiKey) { elements.settingGeminiKey.value = localStorage.getItem('grace_gemini_key') || ''; elements.settingGeminiKey.placeholder = '●●●●●●●● (기본 공용 키 적용됨)'; }
   }
   if (elements.settingGeminiModel) {
     elements.settingGeminiModel.value = state.geminiModel;
@@ -311,7 +323,7 @@ async function initServerConfig() {
 function updateEngineUI() {
   if (elements.statusText) {
     if (state.provider === 'gemini') {
-      if (state.hasGeminiEnvKey || state.geminiKey) {
+      if (state.hasGeminiEnvKey || state.geminiKey || getSharedKey()) {
         elements.statusText.textContent = `✨ Gemini 준비됨 (${state.geminiModel})`;
       } else {
         elements.statusText.textContent = '⚙️ Gemini 키 설정 필요';
