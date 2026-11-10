@@ -760,31 +760,41 @@ async function callGeminiDirectStream(apiKey, model, systemPrompt, userPrompt, o
   let buffer = '';
   let fullText = '';
 
+  const processLine = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('data:')) return;
+    const jsonStr = trimmed.slice(5).trim();
+    if (!jsonStr || jsonStr === '[DONE]') return;
+    try {
+      const parsed = JSON.parse(jsonStr);
+      const parts = parsed?.candidates?.[0]?.content?.parts || [];
+      for (const p of parts) {
+        if (p.text) {
+          fullText += p.text;
+          onToken(p.text);
+        }
+      }
+    } catch (e) {}
+  };
+
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      if (buffer.trim()) {
+        const remaining = buffer.split(/\r?\n/);
+        for (const line of remaining) {
+          processLine(line);
+        }
+      }
+      break;
+    }
 
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n\n');
-    buffer = lines.pop();
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop(); // keep last incomplete line
 
-    for (const chunk of lines) {
-      if (!chunk.trim()) continue;
-      for (const line of chunk.split('\n')) {
-        if (!line.startsWith('data: ')) continue;
-        const jsonStr = line.slice(6).trim();
-        if (!jsonStr) continue;
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const parts = parsed?.candidates?.[0]?.content?.parts || [];
-          for (const p of parts) {
-            if (p.text) {
-              fullText += p.text;
-              onToken(p.text);
-            }
-          }
-        } catch (e) {}
-      }
+    for (const line of lines) {
+      processLine(line);
     }
   }
 
@@ -820,29 +830,39 @@ async function callLMStudioDirectStream(hostUrl, modelName, systemPrompt, userPr
   let buffer = '';
   let fullText = '';
 
+  const processLine = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('data:')) return;
+    const jsonStr = trimmed.slice(5).trim();
+    if (!jsonStr || jsonStr === '[DONE]') return;
+    try {
+      const parsed = JSON.parse(jsonStr);
+      const delta = parsed?.choices?.[0]?.delta?.content || '';
+      if (delta) {
+        fullText += delta;
+        onToken(delta);
+      }
+    } catch (e) {}
+  };
+
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      if (buffer.trim()) {
+        const remaining = buffer.split(/\r?\n/);
+        for (const line of remaining) {
+          processLine(line);
+        }
+      }
+      break;
+    }
 
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n\n');
+    const lines = buffer.split(/\r?\n/);
     buffer = lines.pop();
 
-    for (const chunk of lines) {
-      if (!chunk.trim()) continue;
-      for (const line of chunk.split('\n')) {
-        if (!line.startsWith('data: ')) continue;
-        const jsonStr = line.slice(6).trim();
-        if (!jsonStr || jsonStr === '[DONE]') continue;
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const delta = parsed?.choices?.[0]?.delta?.content || '';
-          if (delta) {
-            fullText += delta;
-            onToken(delta);
-          }
-        } catch (e) {}
-      }
+    for (const line of lines) {
+      processLine(line);
     }
   }
 
