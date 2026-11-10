@@ -1,8 +1,8 @@
 /**
  * GraceAI (은혜의 기도) - Client Application
- * 100% Client-Side execution on GitHub Pages
- * Features: Google Gemini streaming, 3 Bible Verse Cards with meditation,
- * 1-minute Heartfelt Prayer letter, Web Speech TTS with KakaoTalk guide, Prayer Box, and Prayer Card export.
+ * 100% Client-Side execution for GitHub Pages & Local
+ * Features: Google Gemini streaming with auto-failover, 3 Bible Verse Cards with meditation,
+ * 1-minute Heartfelt Prayer letter, Web Speech TTS with KakaoTalk guide, Prayer Box, and Card export.
  */
 
 // Built-in obfuscated shared key for seamless link sharing
@@ -125,20 +125,13 @@ const state = {
   provider: localStorage.getItem('grace_provider') || 'gemini',
   geminiKey: localStorage.getItem('grace_gemini_key') || getSharedKey(),
   geminiModel: localStorage.getItem('grace_gemini_model') || 'gemini-3.5-flash-lite',
-  hasBackendServer: false,
-  hasGeminiEnvKey: false,
-  lmStudioOnline: false,
   activeModel: 'gemma-4-12b-it',
   hostUrl: localStorage.getItem('grace_lm_host') || 'http://127.0.0.1:1234',
   currentPrayerData: null,
   isGenerating: false,
   isSpeaking: false,
-  isAudioLoading: false,
-  speechSynthesisUtterance: null,
   speechQueue: [],
   speechQueueIndex: 0,
-  audioPlayer: null,
-  audioCache: {},
   ttsVoice: localStorage.getItem('grace_tts_voice') || 'ko-KR-SunHiNeural',
   theme: localStorage.getItem('grace_theme') || 'midnight',
   savedPrayers: JSON.parse(localStorage.getItem('grace_saved_prayers') || '[]')
@@ -150,231 +143,104 @@ const elements = {};
 document.addEventListener('DOMContentLoaded', () => {
   initDOMElements();
   initTheme();
-  initEventListeners();
-  checkEnvironment();
-  renderSavedPrayers();
+  setupEventListeners();
+  updateSavedBadge();
+  updateCharCount();
+  updateEngineUI();
 });
 
 function initDOMElements() {
-  elements.btnSettings = document.getElementById('btnSettings');
-  elements.btnPrayerBox = document.getElementById('btnPrayerBox');
+  // Header
+  elements.brandLogo = document.getElementById('brandLogo');
   elements.btnThemeToggle = document.getElementById('btnThemeToggle');
-  elements.settingsModal = document.getElementById('settingsModal');
-  elements.prayerBoxModal = document.getElementById('prayerBoxModal');
-  elements.modalBackdrops = document.querySelectorAll('.modal-backdrop');
-  elements.modalCloses = document.querySelectorAll('.modal-close');
-  elements.tabs = document.querySelectorAll('.tab');
+  elements.btnOpenHistory = document.getElementById('btnOpenHistory');
+  elements.savedCountBadge = document.getElementById('savedCountBadge');
+  elements.btnOpenSettings = document.getElementById('btnOpenSettings');
 
-  elements.prayerTopicInput = document.getElementById('prayerTopic');
+  // Form & Inputs
+  elements.chipsList = document.getElementById('chipsList');
+  elements.prayerForm = document.getElementById('prayerForm');
+  elements.prayerTopicInput = document.getElementById('prayerTopicInput');
   elements.charCount = document.getElementById('charCount');
-  elements.prayerCategory = document.getElementById('prayerCategory');
+  elements.btnClearTopic = document.getElementById('btnClearTopic');
+  elements.btnToggleOptions = document.getElementById('btnToggleOptions');
+  elements.collapsibleOptions = document.getElementById('collapsibleOptions');
   elements.prayerTone = document.getElementById('prayerTone');
   elements.prayerRecipient = document.getElementById('prayerRecipient');
-  elements.chipGroup = document.getElementById('chipGroup');
   elements.btnSubmitPrayer = document.getElementById('btnSubmitPrayer');
-  elements.btnSampleExperience = document.getElementById('btnSampleExperience');
 
+  // Streaming & Loading
   elements.streamingSection = document.getElementById('streamingSection');
-  elements.liveStreamPreview = document.getElementById('liveStreamPreview');
-  elements.generatingTimer = document.getElementById('generatingTimer');
   elements.generatingStatusTitle = document.getElementById('generatingStatusTitle');
   elements.generatingStatusSubtitle = document.getElementById('generatingStatusSubtitle');
+  elements.elapsedTimerBadge = document.getElementById('elapsedTimerBadge');
+  elements.liveStreamPreview = document.getElementById('liveStreamPreview');
 
+  // Results
   elements.resultContainer = document.getElementById('resultContainer');
   elements.resultCategoryLabel = document.getElementById('resultCategoryLabel');
   elements.prayerRecipientTag = document.getElementById('prayerRecipientTag');
   elements.versesGrid = document.getElementById('versesGrid');
   elements.prayerBody = document.getElementById('prayerBody');
   elements.prayerClosingDeclaration = document.getElementById('prayerClosingDeclaration');
-
-  elements.btnAudioToggle = document.getElementById('btnAudioToggle');
-  elements.btnAudioStop = document.getElementById('btnAudioStop');
-  elements.audioIcon = document.getElementById('audioIcon');
-  elements.audioStatusText = document.getElementById('audioStatusText');
+  elements.btnTTSPrayer = document.getElementById('btnTTSPrayer');
+  elements.ttsBtnText = document.getElementById('ttsBtnText');
+  elements.ttsIconWrapper = document.getElementById('ttsIconWrapper');
   elements.selectVoice = document.getElementById('selectVoice');
-  elements.btnCopyPrayer = document.getElementById('btnCopyPrayer');
+  elements.ttsControlPill = document.getElementById('ttsControlPill');
   elements.btnSavePrayer = document.getElementById('btnSavePrayer');
-  elements.btnExportCard = document.getElementById('btnExportCard');
-  elements.btnShare = document.getElementById('btnShare');
+  elements.btnCopyAll = document.getElementById('btnCopyAll');
+  elements.btnOpenCardModal = document.getElementById('btnOpenCardModal');
 
+  // Modals: History
+  elements.historyModal = document.getElementById('historyModal');
+  elements.btnCloseHistory = document.getElementById('btnCloseHistory');
+  elements.historyList = document.getElementById('historyList');
+  elements.historyTotalCount = document.getElementById('historyTotalCount');
+  elements.btnClearAllHistory = document.getElementById('btnClearAllHistory');
+
+  // Modals: Settings
+  elements.settingsModal = document.getElementById('settingsModal');
+  elements.btnCloseSettings = document.getElementById('btnCloseSettings');
+  elements.tabGemini = document.getElementById('tabGemini');
+  elements.tabLMStudio = document.getElementById('tabLMStudio');
+  elements.paneGemini = document.getElementById('paneGemini');
+  elements.paneLMStudio = document.getElementById('paneLMStudio');
   elements.settingGeminiKey = document.getElementById('settingGeminiKey');
   elements.settingGeminiModel = document.getElementById('settingGeminiModel');
   elements.settingHost = document.getElementById('settingHost');
   elements.settingModel = document.getElementById('settingModel');
-  elements.btnTestLM = document.getElementById('btnTestLM');
-  elements.lmStatusIndicator = document.getElementById('lmStatusIndicator');
   elements.settingDefaultVoice = document.getElementById('settingDefaultVoice');
+  elements.btnTestConnection = document.getElementById('btnTestConnection');
+  elements.serverStateVal = document.getElementById('serverStateVal');
+  elements.activeModelVal = document.getElementById('activeModelVal');
   elements.btnSaveSettings = document.getElementById('btnSaveSettings');
 
-  elements.savedPrayersList = document.getElementById('savedPrayersList');
-  elements.savedCountBadge = document.getElementById('savedCountBadge');
-  elements.savedCountBadgeHeader = document.getElementById('savedCountBadgeHeader');
-  elements.statusDot = document.getElementById('statusDot');
-  elements.statusText = document.getElementById('statusText');
-  elements.toast = document.getElementById('toast');
+  // Modals: Card
+  elements.cardModal = document.getElementById('cardModal');
+  elements.btnCloseCardModal = document.getElementById('btnCloseCardModal');
+  elements.cardVerseRef = document.getElementById('cardVerseRef');
+  elements.cardVerseQuote = document.getElementById('cardVerseQuote');
+  elements.cardTopicTitle = document.getElementById('cardTopicTitle');
+  elements.cardPrayerSnippet = document.getElementById('cardPrayerSnippet');
+  elements.cardDate = document.getElementById('cardDate');
+  elements.btnCopyCardText = document.getElementById('btnCopyCardText');
+  elements.btnPrintCard = document.getElementById('btnPrintCard');
+
+  // Toast
+  elements.toastContainer = document.getElementById('toastContainer');
 }
 
 function initTheme() {
-  document.documentElement.setAttribute('data-theme', state.theme);
-}
-
-function initEventListeners() {
-  if (elements.btnThemeToggle) {
-    elements.btnThemeToggle.addEventListener('click', () => {
-      state.theme = state.theme === 'midnight' ? 'dawn' : 'midnight';
-      document.documentElement.setAttribute('data-theme', state.theme);
-      localStorage.setItem('grace_theme', state.theme);
-      showToast(state.theme === 'midnight' ? '🌙 깊은 밤 묵상 모드로 전환되었습니다.' : '☀️ 새벽 은혜 모드로 전환되었습니다.');
-    });
-  }
-
-  if (elements.btnSettings) {
-    elements.btnSettings.addEventListener('click', () => openModal(elements.settingsModal));
-  }
-  if (elements.btnPrayerBox) {
-    elements.btnPrayerBox.addEventListener('click', () => openModal(elements.prayerBoxModal));
-  }
-
-  elements.modalCloses.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const modal = e.target.closest('.modal-overlay');
-      closeModal(modal);
-    });
-  });
-
-  elements.modalBackdrops.forEach(backdrop => {
-    backdrop.addEventListener('click', (e) => {
-      const modal = e.target.closest('.modal-overlay');
-      closeModal(modal);
-    });
-  });
-
-  elements.tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.dataset.tab;
-      switchEngineTab(target);
-    });
-  });
-
-  if (elements.prayerTopicInput) {
-    elements.prayerTopicInput.addEventListener('input', updateCharCount);
-  }
-
-  if (elements.chipGroup) {
-    elements.chipGroup.querySelectorAll('.chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const text = chip.dataset.topic;
-        const cat = chip.dataset.cat;
-        if (text) elements.prayerTopicInput.value = text;
-        if (cat) elements.prayerCategory.value = cat;
-        updateCharCount();
-        elements.prayerTopicInput.focus();
-      });
-    });
-  }
-
-  if (elements.btnSubmitPrayer) {
-    elements.btnSubmitPrayer.addEventListener('click', handleGeneratePrayer);
-  }
-
-  if (elements.btnSampleExperience) {
-    elements.btnSampleExperience.addEventListener('click', () => {
-      closeModal(elements.settingsModal);
-      loadSamplePrayer(elements.prayerCategory.value || '평안과 위로');
-    });
-  }
-
-  if (elements.btnAudioToggle) {
-    elements.btnAudioToggle.addEventListener('click', togglePrayerAudio);
-  }
-  if (elements.btnAudioStop) {
-    elements.btnAudioStop.addEventListener('click', stopPrayerAudio);
-  }
-  if (elements.selectVoice) {
-    elements.selectVoice.addEventListener('change', (e) => {
-      state.ttsVoice = e.target.value;
-      localStorage.setItem('grace_tts_voice', state.ttsVoice);
-      if (elements.settingDefaultVoice) elements.settingDefaultVoice.value = state.ttsVoice;
-      if (state.isSpeaking) {
-        stopPrayerAudio();
-        togglePrayerAudio();
-      }
-    });
-  }
-
-  if (elements.btnCopyPrayer) {
-    elements.btnCopyPrayer.addEventListener('click', handleCopyFullPrayer);
-  }
-  if (elements.btnSavePrayer) {
-    elements.btnSavePrayer.addEventListener('click', handleSavePrayerToBox);
-  }
-  if (elements.btnExportCard) {
-    elements.btnExportCard.addEventListener('click', handleExportPrayerCard);
-  }
-  if (elements.btnShare) {
-    elements.btnShare.addEventListener('click', handleSharePrayer);
-  }
-
-  if (elements.btnTestLM) {
-    elements.btnTestLM.addEventListener('click', testLMStudioConnection);
-  }
-
-  if (elements.btnSaveSettings) {
-    elements.btnSaveSettings.addEventListener('click', () => {
-      if (elements.settingGeminiKey) {
-        const val = elements.settingGeminiKey.value.trim();
-        if (val) {
-          state.geminiKey = val;
-          localStorage.setItem('grace_gemini_key', state.geminiKey);
-        } else if (getSharedKey()) {
-          state.geminiKey = getSharedKey();
-          localStorage.removeItem('grace_gemini_key');
-        } else {
-          state.geminiKey = '';
-          localStorage.removeItem('grace_gemini_key');
-        }
-      }
-      if (elements.settingGeminiModel) {
-        state.geminiModel = elements.settingGeminiModel.value;
-        localStorage.setItem('grace_gemini_model', state.geminiModel);
-      }
-      if (elements.settingHost) {
-        state.hostUrl = elements.settingHost.value.trim();
-        localStorage.setItem('grace_lm_host', state.hostUrl);
-      }
-      if (elements.settingDefaultVoice) {
-        state.ttsVoice = elements.settingDefaultVoice.value;
-        localStorage.setItem('grace_tts_voice', state.ttsVoice);
-        if (elements.selectVoice) elements.selectVoice.value = state.ttsVoice;
-      }
-
-      updateEngineUI();
-      closeModal(elements.settingsModal);
-      showToast('설정이 성공적으로 저장되었습니다.');
-    });
+  if (state.theme === 'parchment') {
+    document.body.classList.add('theme-parchment');
+  } else {
+    document.body.classList.remove('theme-parchment');
   }
 }
 
-function updateCharCount() {
-  if (!elements.prayerTopicInput || !elements.charCount) return;
-  const len = elements.prayerTopicInput.value.length;
-  elements.charCount.textContent = `${len} / 500자`;
-}
-
-function openModal(modal) {
-  if (modal) modal.classList.remove('hidden');
-}
-
-function closeModal(modal) {
-  if (modal) modal.classList.add('hidden');
-}
-
-async function checkEnvironment() {
-  const shared = getSharedKey();
-  if (shared && !localStorage.getItem('grace_gemini_key')) {
-    state.geminiKey = shared;
-  }
-
+function updateEngineUI() {
+  // Update inputs in settings modal (masking shared key)
   if (elements.settingGeminiKey) {
     const userSaved = localStorage.getItem('grace_gemini_key');
     if (userSaved) {
@@ -404,122 +270,299 @@ async function checkEnvironment() {
   switchEngineTab(state.provider, false);
 }
 
-function updateEngineUI() {
-  if (elements.statusText) {
-    if (state.provider === 'gemini') {
-      if (localStorage.getItem('grace_gemini_key') || getSharedKey() || state.hasGeminiEnvKey) {
-        elements.statusText.textContent = `✨ Gemini 준비됨 (초고속 맞춤 기도)`;
-      } else {
-        elements.statusText.textContent = '⚙️ Gemini 키 설정 필요';
-      }
-    } else {
-      elements.statusText.textContent = '💻 LM Studio 연결 대기';
-    }
-  }
-}
-
 function switchEngineTab(providerName, saveToStorage = true) {
   state.provider = providerName;
   if (saveToStorage) {
     localStorage.setItem('grace_provider', providerName);
   }
 
-  elements.tabs.forEach(tab => {
-    tab.classList.toggle('active', tab.dataset.tab === providerName);
+  if (elements.tabGemini) elements.tabGemini.classList.toggle('active', providerName === 'gemini');
+  if (elements.tabLMStudio) elements.tabLMStudio.classList.toggle('active', providerName === 'lmstudio');
+  if (elements.paneGemini) elements.paneGemini.classList.toggle('hidden', providerName !== 'gemini');
+  if (elements.paneLMStudio) elements.paneLMStudio.classList.toggle('hidden', providerName !== 'lmstudio');
+}
+
+function setupEventListeners() {
+  // Theme Toggle
+  if (elements.btnThemeToggle) {
+    elements.btnThemeToggle.addEventListener('click', () => {
+      state.theme = state.theme === 'midnight' ? 'parchment' : 'midnight';
+      localStorage.setItem('grace_theme', state.theme);
+      initTheme();
+      showToast(`테마가 변경되었습니다 (${state.theme === 'midnight' ? '새벽 미명' : '따뜻한 양피지'}`);
+    });
+  }
+
+  // Topic Chips Selection
+  if (elements.chipsList) {
+    elements.chipsList.addEventListener('click', (e) => {
+      const chip = e.target.closest('.topic-chip');
+      if (!chip) return;
+
+      document.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+
+      const topic = chip.dataset.topic;
+      if (topic && elements.prayerTopicInput) {
+        elements.prayerTopicInput.value = topic;
+        updateCharCount();
+        elements.prayerTopicInput.focus();
+      }
+    });
+  }
+
+  // Character Count & Input Clear
+  if (elements.prayerTopicInput) {
+    elements.prayerTopicInput.addEventListener('input', updateCharCount);
+  }
+  if (elements.btnClearTopic && elements.prayerTopicInput) {
+    elements.btnClearTopic.addEventListener('click', () => {
+      elements.prayerTopicInput.value = '';
+      document.querySelectorAll('.topic-chip').forEach(c => c.classList.remove('active'));
+      elements.prayerTopicInput.focus();
+      updateCharCount();
+    });
+  }
+
+  // Collapsible Options Drawer
+  if (elements.btnToggleOptions && elements.collapsibleOptions) {
+    elements.btnToggleOptions.addEventListener('click', () => {
+      const isCollapsed = elements.collapsibleOptions.classList.toggle('collapsed');
+      elements.btnToggleOptions.setAttribute('aria-expanded', !isCollapsed);
+      const arrow = document.getElementById('toggleOptionsArrow') || elements.btnToggleOptions.querySelector('.toggle-arrow, .btn-toggle-arrow');
+      if (arrow) arrow.textContent = isCollapsed ? '▾' : '▴';
+    });
+  }
+
+  // Form Submit (Prayer Generation)
+  if (elements.prayerForm) {
+    elements.prayerForm.addEventListener('submit', handlePrayerSubmit);
+  }
+  if (elements.btnSubmitPrayer) {
+    elements.btnSubmitPrayer.addEventListener('click', (e) => {
+      if (elements.prayerForm) {
+        // let form submit event handle it
+      } else {
+        handlePrayerSubmit(e);
+      }
+    });
+  }
+
+  // Engine Tabs Switch
+  if (elements.tabGemini) {
+    elements.tabGemini.addEventListener('click', () => switchEngineTab('gemini'));
+  }
+  if (elements.tabLMStudio) {
+    elements.tabLMStudio.addEventListener('click', () => switchEngineTab('lmstudio'));
+  }
+
+  // Modals Open
+  document.querySelectorAll('#btnOpenSettings, #btnOpenSettingsHeader, #btnOpenSettingsFooter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      updateEngineUI();
+      openModal(elements.settingsModal);
+    });
   });
 
-  const paneGemini = document.getElementById('paneGemini');
-  const paneLMStudio = document.getElementById('paneLMStudio');
-  if (paneGemini && paneLMStudio) {
-    if (providerName === 'gemini') {
-      paneGemini.classList.remove('hidden');
-      paneLMStudio.classList.add('hidden');
-    } else {
-      paneGemini.classList.add('hidden');
-      paneLMStudio.classList.remove('hidden');
-    }
+  if (elements.btnOpenHistory) {
+    elements.btnOpenHistory.addEventListener('click', () => {
+      renderHistoryList();
+      openModal(elements.historyModal);
+    });
   }
 
-  updateEngineUI();
+  // Modals Close
+  if (elements.btnCloseSettings) {
+    elements.btnCloseSettings.addEventListener('click', () => closeModal(elements.settingsModal));
+  }
+  if (elements.btnCloseHistory) {
+    elements.btnCloseHistory.addEventListener('click', () => closeModal(elements.historyModal));
+  }
+  if (elements.btnCloseCardModal) {
+    elements.btnCloseCardModal.addEventListener('click', () => closeModal(elements.cardModal));
+  }
+
+  // Backdrop click to close modals
+  [elements.settingsModal, elements.historyModal, elements.cardModal].forEach(modal => {
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal(modal);
+      });
+    }
+  });
+
+  // Settings Save
+  if (elements.btnSaveSettings) {
+    elements.btnSaveSettings.addEventListener('click', () => {
+      if (elements.settingGeminiKey) {
+        const keyVal = elements.settingGeminiKey.value.trim();
+        if (keyVal) {
+          state.geminiKey = keyVal;
+          localStorage.setItem('grace_gemini_key', keyVal);
+        } else if (getSharedKey()) {
+          state.geminiKey = getSharedKey();
+          localStorage.removeItem('grace_gemini_key');
+        } else {
+          state.geminiKey = '';
+          localStorage.removeItem('grace_gemini_key');
+        }
+      }
+      if (elements.settingGeminiModel) {
+        state.geminiModel = elements.settingGeminiModel.value;
+        localStorage.setItem('grace_gemini_model', state.geminiModel);
+      }
+      if (elements.settingHost) {
+        state.hostUrl = elements.settingHost.value.trim();
+        localStorage.setItem('grace_lm_host', state.hostUrl);
+      }
+      if (elements.settingDefaultVoice) {
+        state.ttsVoice = elements.settingDefaultVoice.value;
+        localStorage.setItem('grace_tts_voice', state.ttsVoice);
+        if (elements.selectVoice) elements.selectVoice.value = state.ttsVoice;
+      }
+
+      updateEngineUI();
+      closeModal(elements.settingsModal);
+      showToast('설정이 성공적으로 저장되었습니다.');
+    });
+  }
+
+  // Result Action Buttons
+  if (elements.btnCopyAll) {
+    elements.btnCopyAll.addEventListener('click', handleCopyFullPrayer);
+  }
+  if (elements.btnSavePrayer) {
+    elements.btnSavePrayer.addEventListener('click', handleSavePrayerToBox);
+  }
+  if (elements.btnOpenCardModal) {
+    elements.btnOpenCardModal.addEventListener('click', handleOpenPrayerCardModal);
+  }
+  if (elements.btnCopyCardText) {
+    elements.btnCopyCardText.addEventListener('click', () => {
+      if (state.currentPrayerData) {
+        copyToClipboard(`[${state.currentPrayerData.topic}]\n\n${cleanPrayerText(state.currentPrayerData.prayer)}\n\n우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.`);
+        showToast('기도 카드 내용이 복사되었습니다.');
+      }
+    });
+  }
+  if (elements.btnPrintCard) {
+    elements.btnPrintCard.addEventListener('click', () => window.print());
+  }
+
+  // TTS Controls
+  if (elements.btnTTSPrayer) {
+    elements.btnTTSPrayer.addEventListener('click', togglePrayerAudio);
+  }
+  if (elements.selectVoice) {
+    elements.selectVoice.addEventListener('change', () => {
+      state.ttsVoice = elements.selectVoice.value;
+      localStorage.setItem('grace_tts_voice', state.ttsVoice);
+      if (elements.settingDefaultVoice) elements.settingDefaultVoice.value = state.ttsVoice;
+      if (state.isSpeaking) {
+        stopPrayerAudio();
+        togglePrayerAudio();
+      }
+    });
+  }
+
+  // History Clear
+  if (elements.btnClearAllHistory) {
+    elements.btnClearAllHistory.addEventListener('click', () => {
+      if (confirm('보관된 모든 기도문을 삭제하시겠습니까?')) {
+        state.savedPrayers = [];
+        localStorage.setItem('grace_saved_prayers', '[]');
+        updateSavedBadge();
+        renderHistoryList();
+        showToast('기도함이 비워졌습니다.');
+      }
+    });
+  }
 }
 
-async function testLMStudioConnection() {
-  const host = elements.settingHost ? elements.settingHost.value.trim() : state.hostUrl;
-  if (elements.lmStatusIndicator) {
-    elements.lmStatusIndicator.textContent = '연결 확인 중...';
-    elements.lmStatusIndicator.style.color = 'var(--text-muted)';
+function updateCharCount() {
+  if (elements.prayerTopicInput && elements.charCount) {
+    const len = elements.prayerTopicInput.value.length;
+    elements.charCount.textContent = `${len} / 500자`;
   }
+}
 
-  try {
-    const res = await fetch(`${host.replace(/\/+$/, '')}/v1/models`, { method: 'GET' });
-    if (res.ok) {
-      const data = await res.json();
-      const models = data.data || [];
-      if (elements.lmStatusIndicator) {
-        elements.lmStatusIndicator.textContent = `✅ 연결 성공 (${models.length}개 모델 발견)`;
-        elements.lmStatusIndicator.style.color = '#10b981';
-      }
-      if (elements.settingModel && models.length > 0) {
-        elements.settingModel.innerHTML = models.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
-        state.activeModel = models[0].id;
-      }
-      state.lmStudioOnline = true;
-    } else {
-      throw new Error(`HTTP ${res.status}`);
-    }
-  } catch (e) {
-    if (elements.lmStatusIndicator) {
-      elements.lmStatusIndicator.textContent = '❌ 연결 실패 (LM Studio 서버 상태 확인)';
-      elements.lmStatusIndicator.style.color = '#ef4444';
-    }
-    state.lmStudioOnline = false;
-  }
+function openModal(modal) {
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeModal(modal) {
+  if (modal) modal.classList.add('hidden');
+}
+
+function updateSavedBadge() {
+  const count = state.savedPrayers.length;
+  if (elements.savedCountBadge) elements.savedCountBadge.textContent = count;
+  if (elements.historyTotalCount) elements.historyTotalCount.textContent = count;
 }
 
 // ==========================================================================
-// Prayer Generation Workflow
+// Prayer Generation & API Streaming
 // ==========================================================================
-async function handleGeneratePrayer() {
-  if (state.isGenerating) return;
+async function handlePrayerSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
 
   const topic = elements.prayerTopicInput ? elements.prayerTopicInput.value.trim() : '';
   if (!topic) {
-    showToast('기도 제목이나 품은 마음을 입력해 주세요.');
+    showToast('기도 제목이나 품은 마음을 적어주세요.');
     if (elements.prayerTopicInput) elements.prayerTopicInput.focus();
     return;
   }
 
-  const category = elements.prayerCategory ? elements.prayerCategory.value : '평안과 위로';
-  const tone = elements.prayerTone ? elements.prayerTone.value : '위로와 평안';
-  const recipient = elements.prayerRecipient ? elements.prayerRecipient.value : '나 자신';
-
   const activeKey = state.geminiKey || getSharedKey();
   if (state.provider === 'gemini' && !activeKey) {
     openModal(elements.settingsModal);
-    showToast('Gemini API 키가 필요합니다. 상단 공용 키 또는 개인 키를 설정해주세요.');
+    showToast('Google Gemini API 키가 필요합니다. 상단 공용 키 또는 개인 키를 설정해주세요.');
     return;
   }
 
+  if (state.isGenerating) return;
   state.isGenerating = true;
-  elements.btnSubmitPrayer.disabled = true;
-  elements.btnSubmitPrayer.style.opacity = '0.6';
 
-  elements.resultContainer.classList.add('hidden');
-  elements.streamingSection.classList.remove('hidden');
-  elements.liveStreamPreview.innerHTML = '<span class="typing-cursor"></span>';
-  elements.streamingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Stop any active TTS audio
+  stopPrayerAudio();
 
-  let startTime = Date.now();
-  if (elements.generatingTimer) elements.generatingTimer.textContent = '⏱️ 00:00';
+  const activeChip = document.querySelector('.topic-chip.active');
+  const category = activeChip ? activeChip.dataset.category : '평안과 위로';
+  const tone = elements.prayerTone ? elements.prayerTone.value : '위로와 평안';
+  const recipient = elements.prayerRecipient ? elements.prayerRecipient.value : '나 자신';
+
+  // Live Timer
+  let elapsedSeconds = 0;
+  if (elements.elapsedTimerBadge) elements.elapsedTimerBadge.textContent = '⏱️ 00:00';
   const timerInterval = setInterval(() => {
-    const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
-    const mm = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
-    const ss = String(elapsedSec % 60).padStart(2, '0');
-    if (elements.generatingTimer) elements.generatingTimer.textContent = `⏱️ ${mm}:${ss}`;
+    elapsedSeconds++;
+    const mins = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+    const secs = String(elapsedSeconds % 60).padStart(2, '0');
+    if (elements.elapsedTimerBadge) {
+      elements.elapsedTimerBadge.textContent = `⏱️ ${mins}:${secs}`;
+    }
   }, 1000);
 
-  if (elements.generatingStatusTitle) elements.generatingStatusTitle.textContent = '은혜의 기도를 준비하고 있습니다...';
-  if (elements.generatingStatusSubtitle) elements.generatingStatusSubtitle.textContent = '성경 구절과 따뜻한 1분 기도문을 작성 중입니다';
+  // UI State: Hide results, show streaming card
+  if (elements.resultContainer) elements.resultContainer.classList.add('hidden');
+  if (elements.streamingSection) elements.streamingSection.classList.remove('hidden');
+  if (elements.btnSubmitPrayer) {
+    elements.btnSubmitPrayer.disabled = true;
+    elements.btnSubmitPrayer.style.opacity = '0.6';
+  }
+
+  if (elements.generatingStatusTitle) {
+    elements.generatingStatusTitle.textContent = '은혜의 말씀을 묵상하고 있습니다...';
+  }
+  if (elements.generatingStatusSubtitle) {
+    elements.generatingStatusSubtitle.textContent = '성경 말씀 3개와 따뜻한 1분 기도문을 정성껏 작성 중입니다';
+  }
+  if (elements.liveStreamPreview) {
+    elements.liveStreamPreview.innerHTML = '<span class="typing-cursor"></span>';
+  }
+  if (elements.streamingSection) {
+    elements.streamingSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   const systemPrompt = `당신은 은혜롭고 따뜻한 기독교 영성 AI 사역자 '은혜의 기도(GraceAI)'입니다.
 성도들의 간절한 기도 제목과 고민을 듣고, 성경적 진리에 기반한 3개의 성경구절과 깊은 위로와 회복을 주는 1분 내외의 정성스러운 기도문을 작성합니다.
@@ -618,8 +661,10 @@ ${topic}`;
   } finally {
     clearInterval(timerInterval);
     state.isGenerating = false;
-    elements.btnSubmitPrayer.disabled = false;
-    elements.btnSubmitPrayer.style.opacity = '1';
+    if (elements.btnSubmitPrayer) {
+      elements.btnSubmitPrayer.disabled = false;
+      elements.btnSubmitPrayer.style.opacity = '1';
+    }
   }
 }
 
@@ -913,7 +958,7 @@ function parsePrayerMarkdown(text) {
     filteredLines.push(pl);
   }
 
-  let cleanPrayer = filteredLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  let cleanPrayer = filteredLines.join('\n').replace(/\n(3,)/g, '\n\n').trim();
   cleanPrayer = sanitizePrayerGrammar(cleanPrayer);
 
   if (!cleanPrayer.endsWith('아멘.')) {
@@ -982,63 +1027,72 @@ function cleanPrayerText(raw) {
 function renderFinalResults(data) {
   state.currentPrayerData = data;
 
-  elements.streamingSection.classList.add('hidden');
-  elements.resultContainer.classList.remove('hidden');
+  if (elements.streamingSection) elements.streamingSection.classList.add('hidden');
+  if (elements.resultContainer) elements.resultContainer.classList.remove('hidden');
 
-  elements.resultCategoryLabel.textContent = `${data.category} • ${data.tone}`;
-  elements.prayerRecipientTag.textContent = `${data.recipient}을(를) 위해 드리는 정성 어린 기도`;
+  if (elements.resultCategoryLabel) {
+    elements.resultCategoryLabel.textContent = `${data.category} • ${data.tone}`;
+  }
+  if (elements.prayerRecipientTag) {
+    elements.prayerRecipientTag.textContent = `${data.recipient}을(를) 위해 드리는 정성 어린 기도`;
+  }
 
   // Render 3 Bible Verses Separately
-  elements.versesGrid.innerHTML = '';
-  const verses = (data.verses && data.verses.length > 0) ? data.verses : [
-    {
-      reference: "빌립보서 4:6-7",
-      text: "아무 것도 염려하지 말고 다만 모든 일에 기도와 간구로, 너희 구할 것을 감사함으로 하나님께 아뢰라",
-      meditation: "염려 대신 기도로 나아갈 때 하나님의 참된 평강이 임합니다."
-    },
-    {
-      reference: "시편 23:1-3",
-      text: "여호와는 나의 목자시니 내게 부족함이 없으리로다 그가 나를 푸른 풀밭에 누이시며 쉴 만한 물 가로 인도하시는도다",
-      meditation: "선한 목자 되신 하나님께서 내 삶의 모든 길을 인도하십니다."
-    },
-    {
-      reference: "이사야 41:10",
-      text: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라 내가 너를 굳세게 하리라 참으로 너를 도와 주리라",
-      meditation: "나의 연약함을 아시고 굳세게 붙들어 주시는 전능하신 손길을 신뢰합니다."
-    }
-  ];
+  if (elements.versesGrid) {
+    elements.versesGrid.innerHTML = '';
+    const verses = (data.verses && data.verses.length > 0) ? data.verses : [
+      {
+        reference: "빌립보서 4:6-7",
+        text: "아무 것도 염려하지 말고 다만 모든 일에 기도와 간구로, 너희 구할 것을 감사함으로 하나님께 아뢰라",
+        meditation: "염려 대신 기도로 나아갈 때 하나님의 참된 평강이 임합니다."
+      },
+      {
+        reference: "시편 23:1-3",
+        text: "여호와는 나의 목자시니 내게 부족함이 없으리로다 그가 나를 푸른 풀밭에 누이시며 쉴 만한 물 가로 인도하시는도다",
+        meditation: "선한 목자 되신 하나님께서 내 삶의 모든 길을 인도하십니다."
+      },
+      {
+        reference: "이사야 41:10",
+        text: "두려워하지 말라 내가 너와 함께 함이라 놀라지 말라 나는 네 하나님이 됨이라 내가 너를 굳세게 하리라 참으로 너를 도와 주리라",
+        meditation: "나의 연약함을 아시고 굳세게 붙들어 주시는 전능하신 손길을 신뢰합니다."
+      }
+    ];
 
-  verses.forEach((v, index) => {
-    const card = document.createElement('div');
-    card.className = 'verse-item-card';
-    card.innerHTML = `
-      <div>
-        <div class="verse-card-header">
-          <span class="verse-badge">구절 ${index + 1} • ${escapeHtml(v.reference || '성경 말씀')}</span>
-          <button class="verse-copy-btn" title="이 구절 복사" data-idx="${index}">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-          </button>
+    verses.forEach((v, index) => {
+      const card = document.createElement('div');
+      card.className = 'verse-item-card';
+      card.innerHTML = `
+        <div>
+          <div class="verse-card-header">
+            <span class="verse-badge">구절 ${index + 1} • ${escapeHtml(v.reference || '성경 말씀')}</span>
+            <button class="verse-copy-btn" title="이 구절 복사" data-idx="${index}">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+          </div>
+          <p class="verse-text">${escapeHtml(v.text || '')}</p>
         </div>
-        <p class="verse-text">${escapeHtml(v.text || '')}</p>
-      </div>
-      ${v.meditation ? `
-        <div class="verse-meditation">
-          <span class="verse-meditation-label">묵상의 은혜</span>
-          ${escapeHtml(v.meditation)}
-        </div>
-      ` : ''}
-    `;
+        ${v.meditation ? `
+          <div class="verse-meditation">
+            <span class="verse-meditation-label">묵상의 은혜</span>
+            ${escapeHtml(v.meditation)}
+          </div>
+        ` : ''}
+      `;
 
-    card.querySelector('.verse-copy-btn').addEventListener('click', () => {
-      copyToClipboard(`[${v.reference}]\n"${v.text}"\n(묵상: ${v.meditation || ''})`);
-      showToast(`${v.reference} 구절이 복사되었습니다.`);
+      const copyBtn = card.querySelector('.verse-copy-btn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          copyToClipboard(`[${v.reference}]\n"${v.text}"\n(묵상: ${v.meditation || ''})`);
+          showToast(`${v.reference} 구절이 복사되었습니다.`);
+        });
+      }
+
+      elements.versesGrid.appendChild(card);
     });
-
-    elements.versesGrid.appendChild(card);
-  });
+  }
 
   // Render 1-Minute Prayer Letter Separately
   const cleanedPrayer = cleanPrayerText(data.prayer);
@@ -1076,15 +1130,18 @@ function renderFinalResults(data) {
   }
 
   closingText = sanitizePrayerGrammar(closingText);
-  elements.prayerBody.innerHTML = mainParagraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('');
+  if (elements.prayerBody) {
+    elements.prayerBody.innerHTML = mainParagraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('');
+  }
   
-  const closingEl = document.getElementById('prayerClosingDeclaration');
-  if (closingEl) {
-    closingEl.textContent = `"${closingText}"`;
+  if (elements.prayerClosingDeclaration) {
+    elements.prayerClosingDeclaration.textContent = `"${closingText}"`;
   }
 
   // Scroll smoothly to results
-  elements.resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (elements.resultContainer) {
+    elements.resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 // ==========================================================================
@@ -1113,7 +1170,6 @@ async function togglePrayerAudio() {
     showToast('카카오톡 인앱 브라우저는 자체 보안 정책으로 음성 재생을 차단합니다. 화면 우측 메뉴(⋮)에서 [다른 브라우저로 열기(Safari/Chrome)]를 누르시면 원활히 들으실 수 있습니다.', false);
   }
 
-  // Client Web Speech API (Sentence-by-sentence queue to prevent browser synthesis timeout)
   playWebSpeechTTS(cleanedPrayer);
 }
 
@@ -1199,39 +1255,35 @@ function stopPrayerAudio() {
     window.speechSynthesis.cancel();
   }
 
-  updateAudioUI(false, '기도문 음성 듣기');
+  updateAudioUI(false, '기도문 듣기');
 }
 
 function updateAudioUI(isPlaying, statusText) {
-  if (elements.audioStatusText) {
-    elements.audioStatusText.textContent = statusText;
+  if (elements.ttsBtnText) {
+    elements.ttsBtnText.textContent = statusText;
   }
 
-  if (elements.audioIcon) {
+  if (elements.ttsIconWrapper) {
     if (isPlaying) {
-      elements.audioIcon.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      elements.ttsIconWrapper.innerHTML = `
+        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="6" y="4" width="4" height="16" fill="currentColor"></rect>
           <rect x="14" y="4" width="4" height="16" fill="currentColor"></rect>
         </svg>
       `;
     } else {
-      elements.audioIcon.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      elements.ttsIconWrapper.innerHTML = `
+        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
           <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
         </svg>
       `;
     }
   }
-
-  if (elements.btnAudioStop) {
-    elements.btnAudioStop.classList.toggle('hidden', !isPlaying);
-  }
 }
 
 // ==========================================================================
-// Prayer Actions (Copy, Save, Share, Export)
+// Prayer Actions (Copy, Save, Card Modal)
 // ==========================================================================
 function handleCopyFullPrayer() {
   if (!state.currentPrayerData) {
@@ -1280,149 +1332,83 @@ function handleSavePrayerToBox() {
   if (state.savedPrayers.length > 50) state.savedPrayers.pop();
 
   localStorage.setItem('grace_saved_prayers', JSON.stringify(state.savedPrayers));
-  renderSavedPrayers();
+  updateSavedBadge();
   showToast('은혜의 기도함에 소중히 보관되었습니다. 🤍');
 }
 
-function renderSavedPrayers() {
-  const count = state.savedPrayers.length;
-  if (elements.savedCountBadge) elements.savedCountBadge.textContent = count;
-  if (elements.savedCountBadgeHeader) elements.savedCountBadgeHeader.textContent = count;
+function renderHistoryList() {
+  updateSavedBadge();
+  if (!elements.historyList) return;
 
-  if (!elements.savedPrayersList) return;
-
-  if (count === 0) {
-    elements.savedPrayersList.innerHTML = `
-      <div class="empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <p>보관된 기도문이 아직 없습니다.<br>은혜로운 기도를 생성한 후 [기도함에 보관]을 눌러보세요.</p>
+  if (state.savedPrayers.length === 0) {
+    elements.historyList.innerHTML = `
+      <div class="empty-state" style="text-align:center; padding:3rem 1rem; color:var(--text-muted);">
+        <p style="font-size:2rem; margin-bottom:0.5rem;">📖</p>
+        <p>보관된 기도문이 아직 없습니다.<br>은혜로운 기도를 생성한 후 [기도함 저장]을 눌러보세요.</p>
       </div>
     `;
     return;
   }
 
-  elements.savedPrayersList.innerHTML = state.savedPrayers.map((item, index) => `
-    <div class="saved-item" data-id="${item.id}">
-      <div class="saved-item-header">
-        <span class="saved-item-category">${escapeHtml(item.category || '기도')}</span>
-        <span class="saved-item-date">${escapeHtml(item.date)}</span>
+  elements.historyList.innerHTML = state.savedPrayers.map((item, index) => `
+    <div class="saved-item" data-id="${item.id}" style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:1.2rem; margin-bottom:1rem;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.8rem; color:var(--gold-light);">
+        <span>${escapeHtml(item.category || '기도')}</span>
+        <span>${escapeHtml(item.date)}</span>
       </div>
-      <div class="saved-item-topic">${escapeHtml(item.topic)}</div>
-      <div class="saved-item-preview">${escapeHtml(cleanPrayerText(item.prayer).slice(0, 100))}...</div>
-      <div class="saved-item-actions">
-        <button class="btn-load-saved" data-idx="${index}">기도문 보기</button>
-        <button class="btn-delete-saved" data-id="${item.id}">삭제</button>
+      <div style="font-weight:700; color:#fff; font-size:1.05rem; margin-bottom:0.5rem;">${escapeHtml(item.topic)}</div>
+      <div style="font-size:0.9rem; color:var(--text-muted); line-height:1.6; margin-bottom:0.8rem;">${escapeHtml(cleanPrayerText(item.prayer).slice(0, 110))}...</div>
+      <div style="display:flex; gap:0.6rem;">
+        <button class="btn-load-saved" data-idx="${index}" style="padding:0.4rem 0.8rem; font-size:0.8rem; background:var(--gold-primary); color:#000; border:none; border-radius:6px; cursor:pointer; font-weight:600;">기도문 보기</button>
+        <button class="btn-delete-saved" data-id="${item.id}" style="padding:0.4rem 0.8rem; font-size:0.8rem; background:rgba(239,68,68,0.15); color:#ef4444; border:1px solid rgba(239,68,68,0.3); border-radius:6px; cursor:pointer;">삭제</button>
       </div>
     </div>
   `).join('');
 
-  elements.savedPrayersList.querySelectorAll('.btn-load-saved').forEach(btn => {
+  elements.historyList.querySelectorAll('.btn-load-saved').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const idx = parseInt(e.target.dataset.idx, 10);
       const saved = state.savedPrayers[idx];
       if (saved) {
-        closeModal(elements.prayerBoxModal);
+        closeModal(elements.historyModal);
         renderFinalResults(saved);
         showToast('보관된 기도문을 불러왔습니다.');
       }
     });
   });
 
-  elements.savedPrayersList.querySelectorAll('.btn-delete-saved').forEach(btn => {
+  elements.historyList.querySelectorAll('.btn-delete-saved').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const id = e.target.dataset.id;
       state.savedPrayers = state.savedPrayers.filter(p => p.id !== id);
       localStorage.setItem('grace_saved_prayers', JSON.stringify(state.savedPrayers));
-      renderSavedPrayers();
+      updateSavedBadge();
+      renderHistoryList();
       showToast('기도함에서 삭제되었습니다.');
     });
   });
 }
 
-function handleExportPrayerCard() {
+function handleOpenPrayerCardModal() {
   if (!state.currentPrayerData) {
-    showToast('카드뉴스로 내보낼 기도문이 없습니다.');
+    showToast('기도 카드로 만들 기도문이 없습니다.');
     return;
   }
 
   const d = state.currentPrayerData;
   const v1 = (d.verses && d.verses[0]) ? d.verses[0] : null;
 
-  const cardHtml = `
-    <!DOCTYPE html>
-    <html lang="ko">
-    <head>
-      <meta charset="UTF-8">
-      <title>은혜의 기도 카드 - ${escapeHtml(d.topic)}</title>
-      <style>
-        body { margin:0; padding:40px 20px; background:#070913; color:#f1f5f9; font-family:'Noto Serif KR', serif; display:flex; justify-content:center; }
-        .card { max-width:600px; background:linear-gradient(145deg, #0f1424, #131a2d); border:2px solid rgba(217,154,34,0.4); border-radius:24px; padding:40px; box-shadow:0 20px 40px rgba(0,0,0,0.8); }
-        .badge { color:#fbbf24; font-size:14px; letter-spacing:2px; text-transform:uppercase; text-align:center; margin-bottom:12px; }
-        .title { font-size:24px; color:#ffffff; text-align:center; font-weight:700; margin-bottom:24px; line-height:1.4; }
-        .verse-box { background:rgba(255,255,255,0.05); border-left:3px solid #fbbf24; padding:16px 20px; border-radius:12px; margin-bottom:24px; font-size:15px; line-height:1.7; color:#e2e8f0; }
-        .verse-ref { color:#fbbf24; font-weight:600; font-size:13px; margin-bottom:6px; }
-        .prayer-text { font-size:16px; line-height:2.0; color:#cbd5e1; white-space:pre-line; margin-bottom:28px; }
-        .closing { text-align:center; color:#fbbf24; font-size:16px; font-weight:600; margin-top:20px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.1); }
-        .footer { text-align:center; font-size:12px; color:#64748b; margin-top:20px; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <div class="badge">SOLI DEO GLORIA</div>
-        <div class="title">"${escapeHtml(d.topic)}"</div>
-        ${v1 ? `
-          <div class="verse-box">
-            <div class="verse-ref">📖 ${escapeHtml(v1.reference)}</div>
-            "${escapeHtml(v1.text)}"
-          </div>
-        ` : ''}
-        <div class="prayer-text">${escapeHtml(cleanPrayerText(d.prayer))}</div>
-        <div class="closing">"우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘."</div>
-        <div class="footer">은혜의 기도 (GraceAI) • 멜로디 성경</div>
-      </div>
-    </body>
-    </html>
-  `;
-
-  const blob = new Blob([cardHtml], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `은혜의기도_${d.topic.slice(0, 10).replace(/[^가-힣A-Za-z0-9]/g, '_')}.html`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('예쁜 기도문 카드(HTML)가 다운로드되었습니다. 인쇄나 캡처하여 소장하세요.');
-}
-
-function handleSharePrayer() {
-  if (navigator.share && state.currentPrayerData) {
-    navigator.share({
-      title: `[은혜의 기도] ${state.currentPrayerData.topic}`,
-      text: `${cleanPrayerText(state.currentPrayerData.prayer).slice(0, 150)}...\n\n우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.`,
-      url: window.location.href
-    }).catch(() => {});
-  } else {
-    handleCopyFullPrayer();
+  if (elements.cardTopicTitle) elements.cardTopicTitle.textContent = d.topic;
+  if (elements.cardVerseRef && v1) elements.cardVerseRef.textContent = `📖 ${v1.reference}`;
+  if (elements.cardVerseQuote && v1) elements.cardVerseQuote.textContent = `"${v1.text}"`;
+  if (elements.cardPrayerSnippet) {
+    elements.cardPrayerSnippet.textContent = cleanPrayerText(d.prayer);
   }
-}
+  if (elements.cardDate) {
+    elements.cardDate.textContent = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
 
-function loadSamplePrayer(category) {
-  const sample = SAMPLE_PRAYERS[category] || SAMPLE_PRAYERS["평안과 위로"];
-  renderFinalResults({
-    topic: `${category}를 구하는 묵상 기도`,
-    category: category,
-    tone: '위로와 평안',
-    recipient: '나 자신',
-    verses: sample.verses,
-    prayer: sample.prayer,
-    raw: sample.prayer,
-    date: new Date().toISOString()
-  });
-  showToast(`✨ '${category}' 샘플 기도가 로드되었습니다.`);
+  openModal(elements.cardModal);
 }
 
 function copyToClipboard(text) {
@@ -1441,15 +1427,26 @@ function copyToClipboard(text) {
 }
 
 function showToast(msg, isError = false) {
-  if (!elements.toast) return;
-  elements.toast.textContent = msg;
-  elements.toast.classList.toggle('error', isError);
-  elements.toast.classList.remove('hidden');
-  elements.toast.classList.add('show');
+  let container = elements.toastContainer || document.getElementById('toastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+    elements.toastContainer = container;
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast-item ${isError ? 'error' : ''}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+
+  // Trigger reflow for animation
+  setTimeout(() => toast.classList.add('show'), 10);
 
   setTimeout(() => {
-    elements.toast.classList.remove('show');
-    setTimeout(() => elements.toast.classList.add('hidden'), 300);
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
   }, 4000);
 }
 
