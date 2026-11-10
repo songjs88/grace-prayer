@@ -440,7 +440,7 @@ function setupEventListeners() {
   if (elements.btnCopyCardText) {
     elements.btnCopyCardText.addEventListener('click', () => {
       if (state.currentPrayerData) {
-        copyToClipboard(`[${state.currentPrayerData.topic}]\n\n${cleanPrayerText(state.currentPrayerData.prayer)}\n\n우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.`);
+        copyToClipboard(`[${state.currentPrayerData.topic}]\n\n${cleanPrayerText(state.currentPrayerData.prayer)}`);
         showToast('기도 카드 내용이 복사되었습니다.');
       }
     });
@@ -857,20 +857,25 @@ function parsePrayerMarkdown(text) {
     return { verses: [], prayer: '' };
   }
 
-  const lines = text.split('\n');
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalized.split('\n');
   const verseLines = [];
   const prayerLines = [];
   let inPrayerSection = false;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
+
     // Specifically detect when the prayer letter section starts:
-    // Matches: "### 은혜의 기도문", "## 오늘의 기도문", "### 기도문", "**은혜의 기도문**"
-    // Never falsely matches "### 관련 성경구절 (3개) - 기도를 위한 말씀"
-    if (!inPrayerSection && /(?:###?|\*\*)\s*(?:[^\r\n]*?기도문|은혜의\s*기도|오늘의\s*기도|Heartfelt\s*Prayer)/i.test(trimmed)) {
+    // Matches: "### 은혜의 기도문", "## 오늘의 기도문", "# 은혜의 기도문", "### 기도문", "**은혜의 기도문**", "[은혜의 기도문]", "은혜의 기도문"
+    const isPrayerHeader = /(?:^|\s)(?:#{1,6}|\*{1,3}|\[)?\s*(?:은혜(?:의|로운)?\s*기도문?|오늘의\s*기도문?|간절한\s*기도문?|기도문|Heartfelt\s*Prayer)/i.test(trimmed);
+
+    if (!inPrayerSection && isPrayerHeader) {
       inPrayerSection = true;
       continue;
     }
+
     if (inPrayerSection) {
       prayerLines.push(line);
     } else {
@@ -882,13 +887,13 @@ function parsePrayerMarkdown(text) {
   let finalPrayerText = prayerLines.join('\n').trim();
 
   if (!finalPrayerText) {
-    const divIdx = text.search(/\n\s*---\s*\n/);
-    if (divIdx !== -1) {
-      finalVerseText = text.slice(0, divIdx).trim();
-      finalPrayerText = text.slice(divIdx + 5).trim();
+    const lastDivider = normalized.lastIndexOf('\n---');
+    if (lastDivider !== -1) {
+      finalVerseText = normalized.slice(0, lastDivider).trim();
+      finalPrayerText = normalized.slice(lastDivider + 4).trim();
     } else {
-      finalVerseText = text;
-      finalPrayerText = text;
+      finalVerseText = normalized;
+      finalPrayerText = normalized;
     }
   }
 
@@ -902,12 +907,12 @@ function parsePrayerMarkdown(text) {
   for (const vl of vLines) {
     const lineClean = vl.trim();
     if (!lineClean || lineClean === '---' || lineClean === '***') continue;
-    if (/^###?\s*(?:관련\s*성경구절|성경\s*말씀|약속의\s*말씀)/i.test(lineClean)) continue;
+    if (/^#{1,6}\s*(?:관련\s*성경구절|성경\s*말씀|약속의\s*말씀)/i.test(lineClean)) continue;
 
     const refMatch = lineClean.match(verseRefRegex);
     if (refMatch) {
       const ref = refMatch[1].trim();
-      let inlineText = refMatch[2].trim().replace(/^\*+|\*+$/g, '').replace(/^[\"“”]|[\"“”]$/g, '').trim();
+      let inlineText = refMatch[2].trim().replace(/^\*+|\*+$/g, '').replace(/^["“”]|["“”]$/g, '').trim();
       currentVerse = {
         reference: ref,
         text: inlineText,
@@ -919,7 +924,7 @@ function parsePrayerMarkdown(text) {
         let extractedText = lineClean
           .replace(/^[\-\*–—\s]+/, '')
           .replace(/^.*?(?:말씀|본문)\s*[:\-–—]?\s*/i, '')
-          .replace(/^[\"“”]|[\"“”]$/g, '')
+          .replace(/^["“”]|["“”]$/g, '')
           .trim();
         if (extractedText) {
           currentVerse.text = extractedText;
@@ -929,14 +934,14 @@ function parsePrayerMarkdown(text) {
           .replace(/^[\-\*–—\s]+/, '')
           .replace(/\*?묵상(?:의\s*은혜|의\s*길잡이)?\*?\s*[:\-–—]?\s*/i, '')
           .replace(/^[:\-–—\s]+/, '')
-          .replace(/^[\"“”]|[\"“”]$/g, '')
+          .replace(/^["“”]|["“”]$/g, '')
           .replace(/^\*+|\*+$/g, '')
           .trim();
         if (medClean && medClean !== '---' && medClean !== '***') {
           currentVerse.meditation = medClean;
         }
       } else if (!currentVerse.text && !lineClean.startsWith('#')) {
-        currentVerse.text = lineClean.replace(/^[\"“”]|[\"“”]$/g, '').trim();
+        currentVerse.text = lineClean.replace(/^["“”]|["“”]$/g, '').trim();
       }
     }
   }
@@ -953,18 +958,18 @@ function parsePrayerMarkdown(text) {
       continue;
     }
     if (t.startsWith('#') || t === '---' || t === '***') continue;
-    if (!prayerStarted && (t.startsWith('(') || t.startsWith('['))) continue;
+    if (!prayerStarted && (t.startsWith('(이곳에') || t.startsWith('(기도문') || t.startsWith('[안내'))) continue;
     prayerStarted = true;
     filteredLines.push(pl);
   }
 
-  let cleanPrayer = filteredLines.join('\n').replace(/\n(3,)/g, '\n\n').trim();
+  let cleanPrayer = filteredLines.join('\n').trim();
   cleanPrayer = sanitizePrayerGrammar(cleanPrayer);
 
   if (!cleanPrayer.endsWith('아멘.')) {
-    const closingPattern = /(?:우리\s*주\s*)?(?:예수\s*그리스도의|예수님의)\s*(?:이름으로\s*)?(?:기도(?:드립니다|하옵나이다|합니다))?\s*$/;
+    const closingPattern = /(?:우리\s*주\s*)?(?:예수\s*그리스도의|예수님의)\s*(?:이름으로\s*)?(?:기도(?:드립니다|하옵나이다|합니다))?\s*아멘?\.?$/;
     if (closingPattern.test(cleanPrayer)) {
-      cleanPrayer = cleanPrayer.replace(closingPattern, '').trimRight() + '\n\n우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.';
+      cleanPrayer = cleanPrayer.replace(closingPattern, '').trimEnd() + '\n\n우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.';
     } else {
       cleanPrayer = cleanPrayer + '\n\n우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.';
     }
@@ -1094,48 +1099,32 @@ function renderFinalResults(data) {
     });
   }
 
-  // Render 1-Minute Prayer Letter Separately
+  // Render 1-Minute Prayer Letter Directly
   const cleanedPrayer = cleanPrayerText(data.prayer);
-  const paragraphs = cleanedPrayer
-    .split(/\n\s*\n/)
+  let paragraphs = cleanedPrayer
+    .split(/\n\s*\n+/)
     .map(p => p.trim())
     .filter(p => p.length > 0);
 
-  let mainParagraphs = [];
-  let closingText = "우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.";
-
-  if (paragraphs.length <= 1) {
-    const fullText = paragraphs[0] || cleanedPrayer;
-    const amenIdx = fullText.lastIndexOf('우리 주 예수');
-    if (amenIdx !== -1) {
-      mainParagraphs = [fullText.slice(0, amenIdx).trim()];
-      closingText = fullText.slice(amenIdx).trim();
-    } else {
-      mainParagraphs = [fullText];
-    }
-  } else {
-    const lastP = paragraphs[paragraphs.length - 1];
-    if (lastP.includes("우리 주 예수 그리스도") || lastP.includes("예수님의 이름으로") || lastP.endsWith("아멘.")) {
-      closingText = lastP;
-      mainParagraphs = paragraphs.slice(0, paragraphs.length - 1);
-    } else {
-      mainParagraphs = paragraphs;
-    }
+  // If there were only single newlines between paragraphs
+  if (paragraphs.length === 1 && paragraphs[0].includes('\n')) {
+    paragraphs = paragraphs[0]
+      .split('\n')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
   }
 
-  // Safety: mainParagraphs must NEVER be empty!
-  if (mainParagraphs.length === 0 || (mainParagraphs.length === 1 && !mainParagraphs[0])) {
-    mainParagraphs = [closingText];
-    closingText = "우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.";
+  // Safety fallback
+  if (paragraphs.length === 0) {
+    paragraphs = [
+      "사랑과 자비의 하나님 아버지, 오늘도 지친 마음을 이끌고 주님 앞에 나아옵니다.",
+      "선하신 목자 되신 주님께서 우리의 모든 길을 인도하시고 참된 평안으로 채워 주옵소서.",
+      "우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘."
+    ];
   }
 
-  closingText = sanitizePrayerGrammar(closingText);
   if (elements.prayerBody) {
-    elements.prayerBody.innerHTML = mainParagraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('');
-  }
-  
-  if (elements.prayerClosingDeclaration) {
-    elements.prayerClosingDeclaration.textContent = `"${closingText}"`;
+    elements.prayerBody.innerHTML = paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('');
   }
 
   // Scroll smoothly to results
@@ -1304,7 +1293,6 @@ function handleCopyFullPrayer() {
 
   copyText += `[은혜의 기도문]\n`;
   copyText += cleanPrayerText(d.prayer) + '\n\n';
-  copyText += `우리 주 예수 그리스도의 이름으로 기도드립니다. 아멘.\n\n`;
   copyText += `은혜의 기도 (GraceAI) • 멜로디 성경`;
 
   copyToClipboard(copyText);

@@ -1317,13 +1317,21 @@ body.theme-parchment .prayer-letter-card {
   line-height: 2.05;
   color: var(--text-main);
   white-space: pre-wrap;
-  margin-bottom: 2.8rem;
+  margin-bottom: 0.5rem;
   letter-spacing: -0.01em;
   word-break: keep-all;
 }
 
 .prayer-body p {
   margin-bottom: 1.4rem;
+}
+
+.prayer-body p:last-child {
+  margin-bottom: 0.5rem;
+  color: var(--gold-light);
+  font-weight: 600;
+  text-align: center;
+  padding-top: 1rem;
 }
 
 .prayer-footer {
